@@ -170,6 +170,21 @@ Ramp<OutputType> makeRamp( Scalar base, Scalar slope )
 	return Ramp<OutputType>(val, increment);
 }
 
+template <typename SampleType>
+struct Wire
+{
+	inline SampleType operator() ()
+	{
+		return _data;
+	}
+
+	inline void operator() (SampleType arg)
+	{
+		_data = arg;
+	}
+
+	SampleType _data;
+};
 
 }
 

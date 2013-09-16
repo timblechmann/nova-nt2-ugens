@@ -108,11 +108,17 @@ struct NovaLeakDC2:
 	float _freq;
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 template <typename ParameterType>
 struct BiquadParameterStruct
 {
 	ParameterType a0, a1, a2, b1, b2;
 };
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 template <typename FilterDesigner>
 struct NovaBiquadBase:
@@ -203,6 +209,110 @@ struct NovaBiquadBase:
 	float _freqArg, _qArg;
 	Filter _filter;
 };
+
+
+template <typename FilterDesigner>
+struct NovaBiquad4thOrder:
+	public SCUnit
+{
+	typedef boost::simd::pack<double, 2> v2d;
+
+	typedef double ParameterType;
+	typedef nova::Biquad<v2d, ParameterType> Filter;
+	typedef BiquadParameterStruct<ParameterType> BiquadParameterStruct;
+
+	NovaBiquad4thOrder()
+	{
+		initFilter();
+
+		if ((inRate(2) == calc_ScalarRate) && (inRate(3) == calc_ScalarRate))
+			set_vector_calc_function<NovaBiquad4thOrder, &NovaBiquad4thOrder::next_i,
+					&NovaBiquad4thOrder::next_1>();
+		else
+			set_vector_calc_function<NovaBiquad4thOrder, &NovaBiquad4thOrder::next_k,
+					&NovaBiquad4thOrder::next_1>();
+	}
+
+	void initFilter()
+	{
+		float newFreq = in0(2);
+		float newQ    = in0(3);
+
+		_freqArg = newFreq;
+		_qArg    = newQ;
+		auto params = FilterDesigner::template designFilter<BiquadParameterStruct>( newFreq * (float)sampleDur(), newQ );
+		storeFilterParameters( params );
+	}
+
+	void next_1(int)
+	{
+		auto inFn  = nova::Interleaver2<v2d>(this);
+		auto wire  = nova::Wire<v2d>();
+		auto outFn = nova::Deinterleaver2<v2d>(this);
+
+		_filter0.run(inFn, wire, 1);
+		_filter1.run(wire, outFn, 1);
+	}
+
+	void next_i(int)
+	{
+		auto inFn  = nova::Interleaver2<v2d>(this);
+		auto wire  = nova::Wire<v2d>();
+		auto outFn = nova::Deinterleaver2<v2d>(this);
+
+		_filter0.run_unrolled(inFn, wire, mRate->mFilterLoops, mRate->mFilterRemain);
+		_filter1.run_unrolled(wire, outFn, mRate->mFilterLoops, mRate->mFilterRemain);
+	}
+
+	void next_k(int inNumSamples)
+	{
+		float newFreq = in0(2);
+		float newQ    = in0(3);
+
+		if ( (newFreq == _freqArg) && (newQ == _qArg) ) {
+			next_i(inNumSamples);
+			return;
+		}
+
+		_freqArg = newFreq;
+		_qArg    = newQ;
+		BiquadParameterStruct newParameters = FilterDesigner::template designFilter<BiquadParameterStruct>( newFreq * (float)sampleDur(), newQ );
+
+		auto a0Slope = calcSlope( newParameters.a0, _filter0._a0 );
+		auto a1Slope = calcSlope( newParameters.a1, _filter0._a1 );
+		auto a2Slope = calcSlope( newParameters.a2, _filter0._a2 );
+		auto b1Slope = calcSlope( newParameters.b1, _filter0._b1 );
+		auto b2Slope = calcSlope( newParameters.b2, _filter0._b2 );
+
+		auto inFn  = nova::Interleaver2<v2d>(this);
+		auto wire  = nova::Wire<v2d>();
+		auto outFn = nova::Deinterleaver2<v2d>(this);
+
+		_filter0.run_unrolled(inFn, wire, mRate->mFilterLoops, mRate->mFilterRemain,
+							  a0Slope, a1Slope, a2Slope, b1Slope, b2Slope );
+		_filter1.run_unrolled(wire, outFn, mRate->mFilterLoops, mRate->mFilterRemain,
+							  a0Slope, a1Slope, a2Slope, b1Slope, b2Slope );
+		storeFilterParameters( newParameters );
+	}
+
+	void storeFilterParameters(BiquadParameterStruct const & parameters)
+	{
+		_filter0._a0 = parameters.a0;
+		_filter0._a1 = parameters.a1;
+		_filter0._a2 = parameters.a2;
+		_filter0._b1 = parameters.b1;
+		_filter0._b2 = parameters.b2;
+		_filter1._a0 = parameters.a0;
+		_filter1._a1 = parameters.a1;
+		_filter1._a2 = parameters.a2;
+		_filter1._b1 = parameters.b1;
+		_filter1._b2 = parameters.b2;
+	}
+
+	float _freqArg, _qArg;
+	Filter _filter0, _filter1;
+};
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -314,6 +424,7 @@ struct DesignAPF
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 2nd order, 2-channel
 
 struct NovaLowPass2:
 	NovaBiquadBase<DesignLPF>
@@ -345,13 +456,53 @@ struct NovaAllPass2:
 	NovaAllPass2() {}
 };
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// 4nd order, 2-channel
+
+struct NovaLowPass2_4th:
+	NovaBiquad4thOrder<DesignLPF>
+{
+	NovaLowPass2_4th() {}
+};
+
+struct NovaHighPass2_4th:
+	NovaBiquad4thOrder<DesignHPF>
+{
+	NovaHighPass2_4th() {}
+};
+
+struct NovaBandPass2_4th:
+	NovaBiquad4thOrder<DesignBPF>
+{
+	NovaBandPass2_4th() {}
+};
+
+struct NovaBandReject2_4th:
+	NovaBiquad4thOrder<DesignBRF>
+{
+	NovaBandReject2_4th() {}
+};
+
+struct NovaAllPass2_4th:
+	NovaBiquad4thOrder<DesignAPF>
+{
+	NovaAllPass2_4th() {}
+};
+
 
 DEFINE_XTORS(NovaLeakDC2)
+
 DEFINE_XTORS(NovaLowPass2)
 DEFINE_XTORS(NovaHighPass2)
 DEFINE_XTORS(NovaBandPass2)
 DEFINE_XTORS(NovaBandReject2)
 DEFINE_XTORS(NovaAllPass2)
+
+DEFINE_XTORS(NovaLowPass2_4th)
+DEFINE_XTORS(NovaHighPass2_4th)
+DEFINE_XTORS(NovaBandPass2_4th)
+DEFINE_XTORS(NovaBandReject2_4th)
+DEFINE_XTORS(NovaAllPass2_4th)
 
 }
 
@@ -359,9 +510,16 @@ PluginLoad(NovaFilters)
 {
 	ft = inTable;
 	DefineSimpleUnit(NovaLeakDC2);
+
 	DefineSimpleUnit(NovaLowPass2);
 	DefineSimpleUnit(NovaHighPass2);
 	DefineSimpleUnit(NovaBandPass2);
 	DefineSimpleUnit(NovaBandReject2);
 	DefineSimpleUnit(NovaAllPass2);
+
+	DefineSimpleUnit(NovaLowPass2_4th);
+	DefineSimpleUnit(NovaHighPass2_4th);
+	DefineSimpleUnit(NovaBandPass2_4th);
+	DefineSimpleUnit(NovaBandReject2_4th);
+	DefineSimpleUnit(NovaAllPass2_4th);
 }
