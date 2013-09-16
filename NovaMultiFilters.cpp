@@ -108,7 +108,13 @@ struct NovaLeakDC2:
 	float _freq;
 };
 
-template <typename Derived>
+template <typename ParameterType>
+struct BiquadParameterStruct
+{
+	ParameterType a0, a1, a2, b1, b2;
+};
+
+template <typename FilterDesigner>
 struct NovaBiquadBase:
 	public SCUnit
 {
@@ -116,11 +122,7 @@ struct NovaBiquadBase:
 
 	typedef double ParameterType;
 	typedef nova::Biquad<v2d, ParameterType> Filter;
-
-	struct BiquadParameterStruct
-	{
-		ParameterType a0, a1, a2, b1, b2;
-	};
+	typedef BiquadParameterStruct<ParameterType> BiquadParameterStruct;
 
 	NovaBiquadBase()
 	{
@@ -141,7 +143,7 @@ struct NovaBiquadBase:
 
 		_freqArg = newFreq;
 		_qArg    = newQ;
-		auto params = Derived::designFilter( newFreq * (float)sampleDur(), newQ );
+		auto params = FilterDesigner::template designFilter<BiquadParameterStruct>( newFreq * (float)sampleDur(), newQ );
 		storeFilterParameters( params );
 	}
 
@@ -173,7 +175,7 @@ struct NovaBiquadBase:
 
 		_freqArg = newFreq;
 		_qArg    = newQ;
-		BiquadParameterStruct newParameters = Derived::designFilter( newFreq * (float)sampleDur(), newQ );
+		BiquadParameterStruct newParameters = FilterDesigner::template designFilter<BiquadParameterStruct>( newFreq * (float)sampleDur(), newQ );
 
 		auto a0Slope = calcSlope( newParameters.a0, _filter._a0 );
 		auto a1Slope = calcSlope( newParameters.a1, _filter._a1 );
@@ -202,12 +204,11 @@ struct NovaBiquadBase:
 	Filter _filter;
 };
 
-struct NovaLowPass2:
-	NovaBiquadBase<NovaLowPass2>
-{
-	NovaLowPass2() {}
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	template <typename ArgumentType >
+struct DesignLPF
+{
+	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
 		using namespace boost::simd;
@@ -227,12 +228,9 @@ struct NovaLowPass2:
 	}
 };
 
-struct NovaHighPass2:
-	NovaBiquadBase<NovaHighPass2>
+struct DesignHPF
 {
-	NovaHighPass2() {}
-
-	template <typename ArgumentType >
+	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
 		auto K  = std::tan( boost::simd::Pi<ArgumentType>() * cutoff );
@@ -251,12 +249,9 @@ struct NovaHighPass2:
 	}
 };
 
-struct NovaBandPass2:
-	NovaBiquadBase<NovaBandPass2>
+struct DesignBPF
 {
-	NovaBandPass2() {}
-
-	template <typename ArgumentType >
+	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
 		auto K  = std::tan( boost::simd::Pi<ArgumentType>() * cutoff );
@@ -275,12 +270,9 @@ struct NovaBandPass2:
 	}
 };
 
-struct NovaBandReject2:
-	NovaBiquadBase<NovaBandReject2>
+struct DesignBRF
 {
-	NovaBandReject2() {}
-
-	template <typename ArgumentType >
+	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
 		auto K  = std::tan( boost::simd::Pi<ArgumentType>() * cutoff );
@@ -299,12 +291,9 @@ struct NovaBandReject2:
 	}
 };
 
-struct NovaAllpass2:
-	NovaBiquadBase<NovaAllpass2>
+struct DesignAPF
 {
-	NovaAllpass2() {}
-
-	template <typename ArgumentType >
+	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
 		auto K  = std::tan( boost::simd::Pi<ArgumentType>() * cutoff );
@@ -323,12 +312,46 @@ struct NovaAllpass2:
 	}
 };
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct NovaLowPass2:
+	NovaBiquadBase<DesignLPF>
+{
+	NovaLowPass2() {}
+};
+
+struct NovaHighPass2:
+	NovaBiquadBase<DesignHPF>
+{
+	NovaHighPass2() {}
+};
+
+struct NovaBandPass2:
+	NovaBiquadBase<DesignBPF>
+{
+	NovaBandPass2() {}
+};
+
+struct NovaBandReject2:
+	NovaBiquadBase<DesignBRF>
+{
+	NovaBandReject2() {}
+};
+
+struct NovaAllPass2:
+	NovaBiquadBase<DesignAPF>
+{
+	NovaAllPass2() {}
+};
+
+
 DEFINE_XTORS(NovaLeakDC2)
 DEFINE_XTORS(NovaLowPass2)
 DEFINE_XTORS(NovaHighPass2)
 DEFINE_XTORS(NovaBandPass2)
 DEFINE_XTORS(NovaBandReject2)
-DEFINE_XTORS(NovaAllpass2)
+DEFINE_XTORS(NovaAllPass2)
 
 }
 
@@ -340,5 +363,5 @@ PluginLoad(NovaFilters)
 	DefineSimpleUnit(NovaHighPass2);
 	DefineSimpleUnit(NovaBandPass2);
 	DefineSimpleUnit(NovaBandReject2);
-	DefineSimpleUnit(NovaAllpass2);
+	DefineSimpleUnit(NovaAllPass2);
 }
