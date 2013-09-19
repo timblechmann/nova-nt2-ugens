@@ -31,6 +31,9 @@
 #include "boost/simd/arithmetic/include/functions/fast_rec.hpp"
 #include "boost/simd/ieee/include/functions/copysign.hpp"
 
+#include <nt2/include/functions/pow.hpp>
+#include <nt2/include/functions/pow_abs.hpp>
+
 #include "utils.hpp"
 
 namespace {
@@ -47,16 +50,16 @@ struct SaturationBase:
 	{
 		switch (inRate(1)) {
 		case calc_FullRate:
-			if (boost::simd::is_aligned( bufferSize(), 4 ) )
-				set_calc_function<SaturationBase, &SaturationBase::run_a< boost::simd::pack<float, 4> > >();
+			if (boost::simd::is_aligned( bufferSize(), 8 ) )
+				set_calc_function<SaturationBase, &SaturationBase::run_a< boost::simd::pack<float, 8> > >();
 			else
 				set_calc_function<SaturationBase, &SaturationBase::run_a<float>>();
 			break;
 
 		case calc_BufRate:
 			_level = Parent::verifyLevel( in0(1) );
-			if (boost::simd::is_aligned( bufferSize(), 4 ) )
-				set_calc_function<SaturationBase, &SaturationBase::run_k< boost::simd::pack<float, 4> > >();
+			if (boost::simd::is_aligned( bufferSize(), 8 ) )
+				set_calc_function<SaturationBase, &SaturationBase::run_k< boost::simd::pack<float, 8> > >();
 			else
 				set_calc_function<SaturationBase, &SaturationBase::run_k<float>>();
 			break;
@@ -65,7 +68,7 @@ struct SaturationBase:
 		default:
 			_level = Parent::verifyLevel( in0(1) );
 			if (boost::simd::is_aligned( bufferSize(), 4 ) )
-				set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 4> > >();
+				set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 8> > >();
 			else
 				set_calc_function<SaturationBase, &SaturationBase::run_i<float>>();
 		}
@@ -190,8 +193,34 @@ public:
 };
 
 
+class PowSaturation : public SaturationBase<PowSaturation>
+{
+public:
+	PowSaturation()
+	{}
+
+	template <typename SampleType>
+	static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
+	{
+		using namespace boost::simd;
+
+//		auto pow = nt2::pow(abs(sig), level);
+//		auto ret = boost::simd::copysign(pow, sig);
+//		return pow;
+		return boost::simd::copysign(nt2::pow_abs(sig, level), sig);
+	}
+
+	static float verifyLevel(float arg)
+	{
+		return std::max( arg, 1e-10f );
+	}
+};
+
+
+
 DEFINE_XTORS(HyperbolSaturation)
 DEFINE_XTORS(ParabolSaturation)
+DEFINE_XTORS(PowSaturation)
 
 }
 
@@ -200,5 +229,6 @@ PluginLoad(NovaSaturators)
 	ft = inTable;
 	DefineDtorUnit(HyperbolSaturation);
 	DefineDtorUnit(ParabolSaturation);
+	DefineDtorUnit(PowSaturation);
 }
 

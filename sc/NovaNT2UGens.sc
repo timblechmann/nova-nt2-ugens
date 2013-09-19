@@ -10,6 +10,9 @@ HyperbolSaturation : UGen {
 ParabolSaturation : HyperbolSaturation {
 }
 
+PowSaturation : HyperbolSaturation {
+}
+
 LeakDC2 : MultiOutUGen {
 
 	*ar { arg left, right, cutoff;
