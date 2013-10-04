@@ -21,8 +21,9 @@
 
 #include <boost/mpl/if.hpp>
 
-#include "leak_dc.hpp"
 #include "biquad.hpp"
+#include "integrator.hpp"
+#include "leak_dc.hpp"
 #include "producer_consumer_functors.hpp"
 
 #include <boost/math/constants/constants.hpp>
@@ -31,6 +32,7 @@
 #include <boost/simd/sdk/simd/logical.hpp>
 #include <boost/simd/include/functions/compare_equal.hpp>
 #include <boost/simd/include/functions/eq.hpp>
+#include <boost/simd/include/functions/fast_divides.hpp>
 
 #include <boost/simd/operator/operator.hpp>
 
@@ -54,14 +56,16 @@ struct NovaLeakDC:
 	typedef boost::simd::pack<double, NumberOfChannels> vDouble;
 	typedef nova::LeakDC<vDouble, double> Filter;
 
+	static const size_t IndexOfCoefficient = NumberOfChannels;
+
 	NovaLeakDC()
 	{
-		initFilter(in0(2));
+		initFilter(in0(IndexOfCoefficient));
 
 		auto inFn  = nova::Interleaver<vDouble>(this);
 		_filter._x_1 = inFn();
 
-		switch (inRate(2))
+		switch (inRate(IndexOfCoefficient))
 		{
 		case calc_ScalarRate:
 			set_calc_function<NovaLeakDC, &NovaLeakDC::next_i>();
@@ -97,7 +101,7 @@ struct NovaLeakDC:
 
 	void next_k(int inNumSamples)
 	{
-		float newFreq = in0(2);
+		float newFreq = in0(IndexOfCoefficient);
 		if (newFreq != _freq) {
 			float oldA = _filter._a;
 			float newA = designFilter( newFreq );
@@ -126,6 +130,72 @@ typedef NovaLeakDC<8> NovaLeakDC8;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+template <int NumberOfChannels>
+struct NovaIntegrator:
+	public SCUnit
+{
+	typedef boost::simd::pack<double, NumberOfChannels> vDouble;
+	typedef nova::Integrator<vDouble, double> Filter;
+
+	static const size_t IndexOfCoefficient = NumberOfChannels;
+
+	NovaIntegrator()
+	{
+		initFilter(in0(IndexOfCoefficient));
+
+		switch (inRate(IndexOfCoefficient))
+		{
+		case calc_ScalarRate:
+			set_calc_function<NovaIntegrator, &NovaIntegrator::next_i>();
+			break;
+
+		case calc_BufRate:
+		default:
+			_coeff = std::numeric_limits<float>::quiet_NaN();
+			set_calc_function<NovaIntegrator, &NovaIntegrator::next_k>();
+		}
+	}
+
+	void initFilter(float leakFactor)
+	{
+		_filter.set_a( leakFactor );
+		_coeff = leakFactor;
+	}
+
+	void next_i(int inNumSamples)
+	{
+		auto inFn  = nova::Interleaver<vDouble>(this);
+		auto outFn = nova::Deinterleaver<vDouble>(this);
+
+		_filter.run(inFn, outFn, inNumSamples);
+	}
+
+	void next_k(int inNumSamples)
+	{
+		float newCoeff = in0(IndexOfCoefficient);
+		if (newCoeff != _coeff) {
+			auto slopeA = calcSlope(newCoeff, _coeff);
+			_coeff = newCoeff;
+
+			auto inFn  = nova::Interleaver<vDouble>(this);
+			auto outFn = nova::Deinterleaver<vDouble>(this);
+
+			_filter.run(inFn, outFn, inNumSamples, slopeA);
+			_filter.set_a( newCoeff );
+		} else {
+			next_i(inNumSamples);
+		}
+	}
+
+	Filter _filter;
+	float _coeff;
+};
+
+typedef NovaIntegrator<2> NovaIntegrator2;
+typedef NovaIntegrator<4> NovaIntegrator4;
+typedef NovaIntegrator<8> NovaIntegrator8;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename ParameterType>
 struct BiquadParameterStruct
@@ -422,7 +492,6 @@ BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
 	const EvaluatedArgType evaluatedArg = arg;
 
 	for (size_t i = 0; i != size; ++i) {
-//		auto scalar = extract(arg, i);
 		auto scalar = extract(evaluatedArg, i);
 		insert(scalar, ret, i);
 	}
@@ -448,13 +517,13 @@ struct DesignLPF
 		BiquadParameterStruct ret;
 		auto denom = (K2*q + K + q);
 
-		auto a0 = toDouble<ParameterType>((K2*q) / denom);
+		auto a0 = toDouble<ParameterType>( fast_div( (K2*q), denom ) );
 		ret.a0 =  a0;
 		ret.a1 = ParameterType(2) * a0;
 		ret.a2 =  a0;
 
-		ret.b1 = toDouble<ParameterType>(2.f * q * (K2-1.f) / denom);
-		ret.b2 = toDouble<ParameterType>((K2*q - K + q) / denom);
+		ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f),  denom) );
+		ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom)       );
 		return ret;
 	}
 };
@@ -464,6 +533,7 @@ struct DesignHPF
 	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
+		using namespace boost::simd;
 		auto K  = nt2::tan( boost::simd::Pi<ArgumentType>() * cutoff );
 		auto K2 = K*K;
 
@@ -471,12 +541,12 @@ struct DesignHPF
 		typedef typename BiquadParameterStruct::type ParameterType;
 
 		auto denom = (K2*q + K + q);
-		ret.a0 = toDouble<ParameterType>(q      / denom);
-		ret.a1 = toDouble<ParameterType>(-2.f * q / denom);
+		ret.a0 = toDouble<ParameterType>( fast_div( q,  denom) );
+		ret.a1 = toDouble<ParameterType>( fast_div( -2.f * q,  denom) );
 		ret.a2 = ret.a0;
 
-		ret.b1 = toDouble<ParameterType>(2.f * q * (K2-1.f) / denom);
-		ret.b2 = toDouble<ParameterType>((K2*q - K + q) / denom);
+		ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom) );
+		ret.b2 = toDouble<ParameterType>( fast_div( (K2*q - K + q),  denom) );
 		return ret;
 	}
 };
@@ -486,6 +556,7 @@ struct DesignBPF
 	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
+		using namespace boost::simd;
 		auto K  = nt2::tan( boost::simd::Pi<ArgumentType>() * cutoff );
 		auto K2 = K*K;
 
@@ -493,12 +564,12 @@ struct DesignBPF
 		typedef typename BiquadParameterStruct::type ParameterType;
 
 		auto denom = (K2*q + K + q);
-		ret.a0 = toDouble<ParameterType>(K / denom);
+		ret.a0 = toDouble<ParameterType>( fast_div( K,  denom) );
 		ret.a1 = toDouble<ParameterType>(0.f);
 		ret.a2 = toDouble<ParameterType>( -ret.a0 );
 
-		ret.b1 = toDouble<ParameterType>( 2.f * q * (K2-1.f) / denom );
-		ret.b2 = toDouble<ParameterType>( (K2*q - K + q) / denom );
+		ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
+		ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
 		return ret;
 	}
 };
@@ -508,6 +579,7 @@ struct DesignBRF
 	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
+		using namespace boost::simd;
 		auto K  = nt2::tan( boost::simd::Pi<ArgumentType>() * cutoff );
 		auto K2 = K*K;
 
@@ -515,12 +587,12 @@ struct DesignBRF
 		typedef typename BiquadParameterStruct::type ParameterType;
 
 		auto denom = (K2*q + K + q);
-		ret.a0 = toDouble<ParameterType>( q * (1.f + K2)     / denom );
-		ret.a1 = toDouble<ParameterType>( 2.f * q * (K2 - 1.f) / denom );
+		ret.a0 = toDouble<ParameterType>( fast_div( q * (1.f + K2), denom ) );
+		ret.a1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
 		ret.a2 = ret.a0;
 
-		ret.b1 = toDouble<ParameterType>( 2.f * q * (K2-1.f) / denom );
-		ret.b2 = toDouble<ParameterType>( (K2*q - K + q) / denom     );
+		ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
+		ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom     ) );
 		return ret;
 	}
 };
@@ -530,6 +602,7 @@ struct DesignAPF
 	template < typename BiquadParameterStruct, typename ArgumentType >
 	static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
 	{
+		using namespace boost::simd;
 		auto K  = nt2::tan( boost::simd::Pi<ArgumentType>() * cutoff );
 		auto K2 = K*K;
 
@@ -537,12 +610,12 @@ struct DesignAPF
 		typedef typename BiquadParameterStruct::type ParameterType;
 
 		auto denom = (K2*q + K + q);
-		ret.a0 = toDouble<ParameterType>( (K2*q - K + q)   / denom );
-		ret.a1 = toDouble<ParameterType>( 2.f * q * (K2 - 1.f) / denom );
+		ret.a0 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
+		ret.a1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
 		ret.a2 = toDouble<ParameterType>(1.f);
 
-		ret.b1 = toDouble<ParameterType>( 2.f * q * (K2-1.f) / denom );
-		ret.b2 = toDouble<ParameterType>( (K2*q - K + q) / denom );
+		ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
+		ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom ) );
 		return ret;
 	}
 };
@@ -610,7 +683,21 @@ struct NovaAllPass##Chans##_##Chans:            \
 	NovaBiquadBase<DesignAPF, Chans, false>     \
 {                                               \
 	NovaAllPass##Chans##_##Chans() {}           \
-};
+};                                              \
+                                                \
+DEFINE_XTORS(NovaLowPass##Chans)                \
+DEFINE_XTORS(NovaHighPass##Chans)               \
+DEFINE_XTORS(NovaBandPass##Chans)               \
+DEFINE_XTORS(NovaBandReject##Chans)             \
+DEFINE_XTORS(NovaAllPass##Chans)                \
+                                                \
+DEFINE_XTORS(NovaLowPass##Chans##_##Chans)      \
+DEFINE_XTORS(NovaHighPass##Chans##_##Chans)     \
+DEFINE_XTORS(NovaBandPass##Chans##_##Chans)     \
+DEFINE_XTORS(NovaBandReject##Chans##_##Chans)   \
+DEFINE_XTORS(NovaAllPass##Chans##_##Chans)
+
+
 
 DEFINED_2ND_ORDER_FILTERS(1)
 DEFINED_2ND_ORDER_FILTERS(2)
@@ -659,20 +746,9 @@ DEFINE_XTORS(NovaLeakDC2)
 DEFINE_XTORS(NovaLeakDC4)
 DEFINE_XTORS(NovaLeakDC8)
 
-DEFINE_XTORS(NovaLowPass2)
-DEFINE_XTORS(NovaHighPass2)
-DEFINE_XTORS(NovaBandPass2)
-DEFINE_XTORS(NovaBandReject2)
-DEFINE_XTORS(NovaAllPass2)
-
-//DEFINE_XTORS(NovaLowPass2_4th)
-//DEFINE_XTORS(NovaHighPass2_4th)
-//DEFINE_XTORS(NovaBandPass2_4th)
-//DEFINE_XTORS(NovaBandReject2_4th)
-//DEFINE_XTORS(NovaAllPass2_4th)
-
-DEFINE_XTORS(NovaLowPass2_2)
-//DEFINE_XTORS(NovaLowPass2_2_4th)
+DEFINE_XTORS(NovaIntegrator2)
+DEFINE_XTORS(NovaIntegrator4)
+DEFINE_XTORS(NovaIntegrator8)
 
 }
 
@@ -683,18 +759,25 @@ PluginLoad(NovaFilters)
 	DefineSimpleUnit(NovaLeakDC4);
 	DefineSimpleUnit(NovaLeakDC8);
 
-	DefineSimpleUnit(NovaLowPass2);
-	DefineSimpleUnit(NovaHighPass2);
-	DefineSimpleUnit(NovaBandPass2);
-	DefineSimpleUnit(NovaBandReject2);
-	DefineSimpleUnit(NovaAllPass2);
+	DefineSimpleUnit(NovaIntegrator2);
+	DefineSimpleUnit(NovaIntegrator4);
+	DefineSimpleUnit(NovaIntegrator8);
 
-//	DefineSimpleUnit(NovaLowPass2_4th);
-//	DefineSimpleUnit(NovaHighPass2_4th);
-//	DefineSimpleUnit(NovaBandPass2_4th);
-//	DefineSimpleUnit(NovaBandReject2_4th);
-//	DefineSimpleUnit(NovaAllPass2_4th);
+#define REGISTER_BIQUADS(Chans)                         \
+	DefineSimpleUnit(NovaLowPass##Chans);               \
+	DefineSimpleUnit(NovaHighPass##Chans);              \
+	DefineSimpleUnit(NovaBandPass##Chans);              \
+	DefineSimpleUnit(NovaBandReject##Chans);            \
+	DefineSimpleUnit(NovaAllPass##Chans);               \
+                                                        \
+    DefineSimpleUnit(NovaLowPass##Chans##_##Chans);     \
+    DefineSimpleUnit(NovaHighPass##Chans##_##Chans);    \
+    DefineSimpleUnit(NovaBandPass##Chans##_##Chans);    \
+    DefineSimpleUnit(NovaBandReject##Chans##_##Chans);  \
+    DefineSimpleUnit(NovaAllPass##Chans##_##Chans);
 
-	DefineSimpleUnit(NovaLowPass2_2);
-//	DefineSimpleUnit(NovaLowPass2_2_4th);
+    REGISTER_BIQUADS(1);
+    REGISTER_BIQUADS(2);
+    REGISTER_BIQUADS(4);
+    REGISTER_BIQUADS(8);
 }
