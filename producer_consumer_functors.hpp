@@ -22,29 +22,30 @@
 #include "SC_PlugIn.hpp"
 
 #include "boost/simd/include/pack.hpp"
-#include "boost/simd/memory/include/functions/aligned_load.hpp"
-#include "boost/simd/memory/include/functions/aligned_store.hpp"
-#include "boost/simd/swar/include/functions/groups.hpp"
-#include "boost/simd/swar/include/functions/split.hpp"
+#include "boost/simd/include/functions/aligned_load.hpp"
+#include "boost/simd/include/functions/aligned_store.hpp"
+#include "boost/simd/include/functions/groups.hpp"
+#include "boost/simd/include/functions/split.hpp"
+
+#include "boost/simd/sdk/meta/cardinal_of.hpp"
 
 namespace nova {
 
 template <typename OutputType>
-struct Interleaver2
+struct Interleaver
 {
-	typedef boost::simd::pack<double, 2> v2d;
-	typedef boost::simd::pack<float,  4> v4f;
+	static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
 
-	Interleaver2(SCUnit * unit):
+	Interleaver(SCUnit * unit):
 		unit(unit), cnt(0)
 	{}
 
 	BOOST_FORCEINLINE OutputType operator() ()
 	{
-		OutputType ret(unit->in(0)[cnt], unit->in(1)[cnt]);
-//		v4f retFloat(unit->in(0)[cnt], unit->in(1)[cnt], 0.f, 0.f);
-//		v2d ret, dummy;
-//		boost::simd::split(retFloat, dummy, ret);
+		OutputType ret;
+		for (size_t i = 0; i != N; ++i)
+			boost::simd::insert(unit->in(i)[cnt], ret, i);
+
 		cnt += 1;
 		return ret;
 	}
@@ -54,22 +55,19 @@ struct Interleaver2
 };
 
 template <typename OutputType>
-struct Deinterleaver2
+struct Deinterleaver
 {
-	typedef boost::simd::pack<double, 2> v2d;
-	typedef boost::simd::pack<float,  4> v4f;
+	static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
 
-	Deinterleaver2(SCUnit * unit):
+	Deinterleaver(SCUnit * unit):
 		unit(unit), cnt(0)
 	{}
 
 	BOOST_FORCEINLINE void operator() (OutputType arg)
 	{
-		v4f asFloat = boost::simd::group(arg, arg);
 		for (int i = 0; i != 2; ++i) {
 			float * out = unit->out(i);
-			out[cnt] = boost::simd::extract(asFloat, i);
-//			out[cnt] = boost::simd::extract(arg, i);
+			out[cnt] = boost::simd::extract(arg, i);
 		}
 		cnt += 1;
 	}
