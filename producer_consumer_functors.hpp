@@ -65,7 +65,7 @@ struct Deinterleaver
 
 	BOOST_FORCEINLINE void operator() (OutputType arg)
 	{
-		for (int i = 0; i != 2; ++i) {
+		for (int i = 0; i != N; ++i) {
 			float * out = unit->out(i);
 			out[cnt] = boost::simd::extract(arg, i);
 		}

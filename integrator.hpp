@@ -71,7 +71,8 @@ struct Integrator
 		for (size_t i = 0; i != remain; ++i) {
 			SampleType x = in();
 			SampleType y = tick(x, y_1, a);
-			a += aSlope;
+			if (!std::is_same<ASlope, Zero>::value)
+				a += aSlope;
 
 			out(y);
 		}
