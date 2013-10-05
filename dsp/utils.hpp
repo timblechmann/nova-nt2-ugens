@@ -19,9 +19,12 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include "boost/simd/arithmetic/include/functions/negs.hpp"
-#include "boost/simd/arithmetic/include/functions/max.hpp"
-#include "boost/simd/arithmetic/include/functions/min.hpp"
+#include <boost/mpl/if.hpp>
+
+#include "boost/simd/include/pack.hpp"
+#include "boost/simd/include/functions/max.hpp"
+#include "boost/simd/include/functions/min.hpp"
+#include "boost/simd/include/functions/negs.hpp"
 
 namespace nova {
 
@@ -39,6 +42,15 @@ inline auto clip2 ( SampleType0 x, SampleType1 hi)
     auto lo = neg(hi);
     return clip(x, lo, hi);
 }
+
+template <typename ScalarType, size_t Size>
+struct as_pack
+{
+	typedef typename boost::mpl::if_c< Size == 1u,
+									   ScalarType,
+									   boost::simd::pack<ScalarType, Size>
+									 >::type type;
+};
 
 }
 

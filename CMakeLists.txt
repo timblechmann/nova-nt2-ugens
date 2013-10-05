@@ -22,6 +22,7 @@ include_directories(nt2/build/include)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     add_definitions(-stdlib=libc++)
+    add_definitions(-std=c++1y)
     set(CMAKE_SHARED_LINKER_FLAGS "-stdlib=libc++ ${CMAKE_SHARED_LINKER_FLAGS}")
 endif()
 
@@ -33,23 +34,33 @@ endif()
 
 SET(CMAKE_SHARED_LIBRARY_PREFIX "")
 
-file(GLOB_RECURSE headers FOLLOW_SYMLINKS *hpp)
+file(GLOB headers dsp/*hpp)
+file(GLOB headers_2 *hpp)
 
-add_library(NovaMultiFilters SHARED NovaMultiFilters.cpp ${headers})
-add_library(NovaAmbisonicUGens SHARED NovaAmbisonicUGens.cpp)
-add_library(NovaSaturator SHARED NovaSaturator.cpp)
+set (sources
+  NovaAmbisonicUGens.cpp
+  NovaMultiFilters.cpp
+  NovaSaturator.cpp
+  NovaFeedbackAM.cpp
+)
 
-add_library(NovaMultiFilters_supernova SHARED NovaMultiFilters.cpp ${headers})
-add_library(NovaAmbisonicUGens_supernova SHARED NovaAmbisonicUGens.cpp)
-add_library(NovaSaturator_supernova SHARED NovaSaturator.cpp)
+foreach(src ${sources})
+  string(REPLACE .cpp "" libname ${src} )
+
+  add_library(${libname} SHARED ${src} ${headers} ${headers_2})
+
+  set (snlib ${libname}_supernova)
+
+  add_library(${snlib} SHARED ${src})
+
+  set_property(TARGET ${snlib}
+    APPEND PROPERTY COMPILE_DEFINITIONS SUPERNOVA)
+
+  set(libs ${libname} ${snlib} ${libs})
+endforeach()
 
 
-set_property(TARGET NovaMultiFilters_supernova NovaSaturator_supernova NovaAmbisonicUGens_supernova
-             APPEND PROPERTY COMPILE_DEFINITIONS SUPERNOVA)
-
-
-install(TARGETS NovaMultiFilters NovaSaturator NovaMultiFilters_supernova NovaSaturator_supernova
-                NovaAmbisonicUGens_supernova NovaAmbisonicUGens
+install(TARGETS ${libs}
         DESTINATION "lib/SuperCollider/plugins/")
 
 install(FILES sc/NovaNT2UGens.sc

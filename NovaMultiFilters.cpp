@@ -44,7 +44,11 @@
 
 #include <cmath>
 
+#include "NovaUGensCommon.hpp"
+
 namespace {
+
+using nova::NovaUnit;
 
 InterfaceTable *ft;
 
@@ -233,15 +237,11 @@ struct InputInterleaver
     }
 };
 
-template <typename ScalarType, size_t Size>
-struct as_pack
-{
-    typedef typename boost::mpl::if_c< Size == 1u, ScalarType, boost::simd::pack<ScalarType, Size>>::type type;
-};
+
 
 template <typename FilterDesigner, size_t Size, bool ScalarArguments = true>
 struct NovaBiquadBase:
-    public SCUnit
+	public NovaUnit
 {
     static const size_t ParameterSize = ScalarArguments ? 1 : Size;
     static const int FreqInputIndex = Size;
@@ -251,8 +251,8 @@ struct NovaBiquadBase:
 
     typedef InputInterleaver<ParameterSize> ParameterReader;
 
-    typedef typename as_pack<float,  Size>::type vFloat;
-    typedef typename as_pack<double, Size>::type vDouble;
+	typedef typename nova::as_pack<float,  Size>::type vFloat;
+	typedef typename nova::as_pack<double, Size>::type vDouble;
 
     typedef typename boost::mpl::if_c<ScalarArguments, double, vDouble>::type ParameterType;
     typedef typename boost::mpl::if_c<ScalarArguments, float,  vFloat>::type HostParameterType;
@@ -276,14 +276,6 @@ struct NovaBiquadBase:
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_i, &NovaBiquadBase::next_1>();
         else
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_k, &NovaBiquadBase::next_1>();
-    }
-
-    /// calculate slope value
-    template <typename FloatTypeA, typename FloatTypeB>
-    auto calcSlope(FloatTypeA next, FloatTypeB prev) const
-    {
-        const Unit * unit = this;
-        return ((next - prev) * unit->mRate->mSlopeFactor);
     }
 
     void initFilter()
@@ -728,73 +720,73 @@ struct DesignAPF
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // 2nd order, 2-channel
 
-#define DEFINED_2ND_ORDER_FILTERS(Chans)        \
+#define DEFINED_2ND_ORDER_FILTERS(Chans)            \
     struct NovaLowPass##Chans:                      \
-    NovaBiquadBase<DesignLPF, Chans>            \
-{                                               \
-    NovaLowPass##Chans() {}                     \
-};                                              \
-    \
+        NovaBiquadBase<DesignLPF, Chans>            \
+    {                                               \
+        NovaLowPass##Chans() {}                     \
+    };                                              \
+                                                    \
     struct NovaHighPass##Chans:                     \
-    NovaBiquadBase<DesignHPF, Chans>            \
-{                                               \
-    NovaHighPass##Chans() {}                    \
-};                                              \
-    \
+        NovaBiquadBase<DesignHPF, Chans>            \
+    {                                               \
+        NovaHighPass##Chans() {}                    \
+    };                                              \
+                                                    \
     struct NovaBandPass##Chans:                     \
-    NovaBiquadBase<DesignBPF, Chans>            \
-{                                               \
-    NovaBandPass##Chans() {}                    \
-};                                              \
-    \
+        NovaBiquadBase<DesignBPF, Chans>            \
+    {                                               \
+        NovaBandPass##Chans() {}                    \
+    };                                              \
+                                                    \
     struct NovaBandReject##Chans:                   \
-    NovaBiquadBase<DesignBRF, Chans>            \
-{                                               \
-    NovaBandReject##Chans() {}                  \
-};                                              \
-    \
+        NovaBiquadBase<DesignBRF, Chans>            \
+    {                                               \
+        NovaBandReject##Chans() {}                  \
+    };                                              \
+                                                    \
     struct NovaAllPass##Chans:                      \
-    NovaBiquadBase<DesignAPF, Chans>            \
-{                                               \
-    NovaAllPass##Chans() {}                     \
-};                                              \
-    \
+        NovaBiquadBase<DesignAPF, Chans>            \
+    {                                               \
+        NovaAllPass##Chans() {}                     \
+    };                                              \
+                                                    \
     struct NovaLowPass##Chans##_##Chans:            \
-    NovaBiquadBase<DesignLPF, Chans, false>     \
-{                                               \
-    NovaLowPass##Chans##_##Chans() {}           \
-};                                              \
-    \
+        NovaBiquadBase<DesignLPF, Chans, false>     \
+    {                                               \
+        NovaLowPass##Chans##_##Chans() {}           \
+    };                                              \
+                                                    \
     struct NovaHighPass##Chans##_##Chans:           \
-    NovaBiquadBase<DesignHPF, Chans, false>     \
-{                                               \
-    NovaHighPass##Chans##_##Chans() {}          \
-};                                              \
-    \
+        NovaBiquadBase<DesignHPF, Chans, false>     \
+    {                                               \
+        NovaHighPass##Chans##_##Chans() {}          \
+    };                                              \
+                                                    \
     struct NovaBandPass##Chans##_##Chans:           \
-    NovaBiquadBase<DesignBPF, Chans, false>     \
-{                                               \
-    NovaBandPass##Chans##_##Chans() {}          \
-};                                              \
-    \
+        NovaBiquadBase<DesignBPF, Chans, false>     \
+    {                                               \
+        NovaBandPass##Chans##_##Chans() {}          \
+    };                                              \
+                                                    \
     struct NovaBandReject##Chans##_##Chans:         \
-    NovaBiquadBase<DesignBRF, Chans, false>     \
-{                                               \
-    NovaBandReject##Chans##_##Chans() {}        \
-};                                              \
-    \
+        NovaBiquadBase<DesignBRF, Chans, false>     \
+    {                                               \
+        NovaBandReject##Chans##_##Chans() {}        \
+    };                                              \
+                                                    \
     struct NovaAllPass##Chans##_##Chans:            \
-    NovaBiquadBase<DesignAPF, Chans, false>     \
-{                                               \
-    NovaAllPass##Chans##_##Chans() {}           \
-};                                              \
-    \
+        NovaBiquadBase<DesignAPF, Chans, false>     \
+    {                                               \
+        NovaAllPass##Chans##_##Chans() {}           \
+    };                                              \
+                                                    \
     DEFINE_XTORS(NovaLowPass##Chans)                \
     DEFINE_XTORS(NovaHighPass##Chans)               \
     DEFINE_XTORS(NovaBandPass##Chans)               \
     DEFINE_XTORS(NovaBandReject##Chans)             \
     DEFINE_XTORS(NovaAllPass##Chans)                \
-    \
+                                                    \
     DEFINE_XTORS(NovaLowPass##Chans##_##Chans)      \
     DEFINE_XTORS(NovaHighPass##Chans##_##Chans)     \
     DEFINE_XTORS(NovaBandPass##Chans##_##Chans)     \
