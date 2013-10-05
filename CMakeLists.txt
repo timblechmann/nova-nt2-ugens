@@ -21,11 +21,12 @@ include_directories(${SC_PATH}/external_libraries/boost)
 include_directories(nt2/build/include)
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    add_definitions(-std=c++11 -stdlib=libc++)
+    add_definitions(-stdlib=libc++)
     set(CMAKE_SHARED_LINKER_FLAGS "-stdlib=libc++ ${CMAKE_SHARED_LINKER_FLAGS}")
 endif()
 
 if(${CMAKE_COMPILER_IS_GNUCXX})
+    add_definitions(-std=c++1y)
     add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
     add_definitions(-fvisibility=hidden)
 endif()

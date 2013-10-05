@@ -32,6 +32,7 @@
 #include <boost/simd/sdk/simd/logical.hpp>
 #include <boost/simd/include/functions/compare_equal.hpp>
 #include <boost/simd/include/functions/eq.hpp>
+#include <boost/simd/include/functions/negate.hpp>
 #include <boost/simd/include/functions/fast_divides.hpp>
 
 #include <boost/simd/operator/operator.hpp>
@@ -200,8 +201,14 @@ typedef NovaIntegrator<8> NovaIntegrator8;
 template <typename ParameterType>
 struct BiquadParameterStruct
 {
+    ParameterType a0() { return _a0; }
+    ParameterType a1() { return _a1; }
+    ParameterType a2() { return _a2; }
+    ParameterType b1() { return _b1; }
+    ParameterType b2() { return _b2; }
+
     typedef ParameterType type;
-    ParameterType a0, a1, a2, b1, b2;
+    ParameterType _a0, _a1, _a2, _b1, _b2;
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -250,8 +257,8 @@ struct NovaBiquadBase:
     typedef typename boost::mpl::if_c<ScalarArguments, double, vDouble>::type ParameterType;
     typedef typename boost::mpl::if_c<ScalarArguments, float,  vFloat>::type HostParameterType;
 
-    typedef nova::Biquad<vDouble, ParameterType> Filter;
-    typedef BiquadParameterStruct<ParameterType> BiquadParameter;
+    typedef typename FilterDesigner::template makeParameter<ParameterType>::type BiquadParameterStruct;
+    typedef nova::Biquad<vDouble, BiquadParameterStruct> Filter;
 
     NovaBiquadBase()
     {
@@ -271,6 +278,14 @@ struct NovaBiquadBase:
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_k, &NovaBiquadBase::next_1>();
     }
 
+    /// calculate slope value
+    template <typename FloatTypeA, typename FloatTypeB>
+    auto calcSlope(FloatTypeA next, FloatTypeB prev) const
+    {
+        const Unit * unit = this;
+        return ((next - prev) * unit->mRate->mSlopeFactor);
+    }
+
     void initFilter()
     {
         auto newFreq = ParameterReader::read(this, FreqInputIndex);
@@ -279,7 +294,7 @@ struct NovaBiquadBase:
         _freqArg = newFreq;
         _qArg    = newQ;
         HostParameterType normalizedFreq = newFreq * (float)sampleDur();
-        BiquadParameter params = FilterDesigner::template designFilter<BiquadParameter>( normalizedFreq, newQ );
+        auto params = FilterDesigner::template designFilter<BiquadParameterStruct>( normalizedFreq, newQ );
 
         storeFilterParameters( params );
     }
@@ -318,13 +333,13 @@ struct NovaBiquadBase:
         _freqArg = newFreq;
         _qArg    = newQ;
         HostParameterType normalizedFreq = newFreq * (float)sampleDur();
-        BiquadParameter newParameters = FilterDesigner::template designFilter<BiquadParameter>( normalizedFreq, newQ );
+        auto newParameters = FilterDesigner::template designFilter<BiquadParameterStruct>( normalizedFreq, newQ );
 
-        auto a0Slope = calcSlope( newParameters.a0, _filter._a0 );
-        auto a1Slope = calcSlope( newParameters.a1, _filter._a1 );
-        auto a2Slope = calcSlope( newParameters.a2, _filter._a2 );
-        auto b1Slope = calcSlope( newParameters.b1, _filter._b1 );
-        auto b2Slope = calcSlope( newParameters.b2, _filter._b2 );
+        ParameterType a0Slope = calcSlope( newParameters.a0(), _filter._parameters.a0() );
+        ParameterType a1Slope = calcSlope( newParameters.a1(), _filter._parameters.a1() );
+        ParameterType a2Slope = calcSlope( newParameters.a2(), _filter._parameters.a2() );
+        ParameterType b1Slope = calcSlope( newParameters.b1(), _filter._parameters.b1() );
+        ParameterType b2Slope = calcSlope( newParameters.b2(), _filter._parameters.b2() );
 
         auto inFn  = nova::Interleaver<vDouble>(this);
         auto outFn = nova::Deinterleaver<vDouble>(this);
@@ -334,13 +349,9 @@ struct NovaBiquadBase:
         storeFilterParameters( newParameters );
     }
 
-    void storeFilterParameters(BiquadParameter const & parameters)
+    void storeFilterParameters(BiquadParameterStruct const & parameters)
     {
-        _filter._a0 = parameters.a0;
-        _filter._a1 = parameters.a1;
-        _filter._a2 = parameters.a2;
-        _filter._b1 = parameters.b1;
-        _filter._b2 = parameters.b2;
+        _filter._parameters = parameters;
     }
 
     HostParameterType _freqArg, _qArg;
@@ -501,6 +512,27 @@ BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
 
 struct DesignLPF
 {
+    template <typename ParameterType>
+    struct ParameterStruct
+    {
+        typedef ParameterType type;
+
+        ParameterType a0() { return _a0_a1_a2; }
+        ParameterType a1() { return _a0_a1_a2 + _a0_a1_a2; }
+        ParameterType a2() { return _a0_a1_a2; }
+        ParameterType b1() { return _b1;       }
+        ParameterType b2() { return _b2;       }
+
+        ParameterType _a0_a1_a2;
+        ParameterType _b1, _b2;
+    };
+
+    template <typename ParameterType>
+    struct makeParameter
+    {
+        typedef ParameterStruct<ParameterType> type;
+    };
+
     template < typename BiquadParameterStruct, typename ArgumentType >
     static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
     {
@@ -517,19 +549,37 @@ struct DesignLPF
         BiquadParameterStruct ret;
         auto denom = (K2*q + K + q);
 
-        auto a0 = toDouble<ParameterType>( fast_div( (K2*q), denom ) );
-        ret.a0 =  a0;
-        ret.a1 = ParameterType(2) * a0;
-        ret.a2 =  a0;
+        ret._a0_a1_a2 = toDouble<ParameterType>( fast_div( (K2*q), denom ) );
 
-        ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f),  denom) );
-        ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom)       );
+        ret._b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f),  denom) );
+        ret._b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom)       );
         return ret;
     }
 };
 
 struct DesignHPF
 {
+    template <typename ParameterType>
+    struct ParameterStruct
+    {
+        typedef ParameterType type;
+
+        ParameterType a0() { return _a0_a2; }
+        ParameterType a1() { return _a1;    }
+        ParameterType a2() { return _a0_a2; }
+        ParameterType b1() { return _b1;    }
+        ParameterType b2() { return _b2;    }
+
+        ParameterType _a0_a2, _a1;
+        ParameterType _b1, _b2;
+    };
+
+    template <typename ParameterType>
+    struct makeParameter
+    {
+        typedef ParameterStruct<ParameterType> type;
+    };
+
     template < typename BiquadParameterStruct, typename ArgumentType >
     static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
     {
@@ -541,18 +591,39 @@ struct DesignHPF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret.a0 = toDouble<ParameterType>( fast_div( q,  denom) );
-        ret.a1 = toDouble<ParameterType>( fast_div( -2.f * q,  denom) );
-        ret.a2 = ret.a0;
+        ret._a0_a2 = toDouble<ParameterType>( fast_div( q,  denom) );
+        ret._a1    = toDouble<ParameterType>( fast_div( -2.f * q,  denom) );
 
-        ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom) );
-        ret.b2 = toDouble<ParameterType>( fast_div( (K2*q - K + q),  denom) );
+        ret._b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom) );
+        ret._b2 = toDouble<ParameterType>( fast_div( (K2*q - K + q),  denom) );
         return ret;
     }
 };
 
 struct DesignBPF
 {
+    template <typename ParameterType>
+    struct ParameterStruct
+    {
+        typedef ParameterType type;
+
+        ParameterType a0() { return _a0; }
+        auto          a1() { return boost::simd::Zero<type>(); }
+        auto          a2() { return a1() - _a0; }
+
+        ParameterType b1() { return _b1;    }
+        ParameterType b2() { return _b2;    }
+
+        ParameterType _a0;
+        ParameterType _b1, _b2;
+    };
+
+    template <typename ParameterType>
+    struct makeParameter
+    {
+        typedef ParameterStruct<ParameterType> type;
+    };
+
     template < typename BiquadParameterStruct, typename ArgumentType >
     static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
     {
@@ -564,18 +635,37 @@ struct DesignBPF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret.a0 = toDouble<ParameterType>( fast_div( K,  denom) );
-        ret.a1 = toDouble<ParameterType>(0.f);
-        ret.a2 = toDouble<ParameterType>( -ret.a0 );
+        ret._a0 = toDouble<ParameterType>( fast_div( K,  denom) );
 
-        ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
-        ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
+        ret._b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
+        ret._b2 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
         return ret;
     }
 };
 
 struct DesignBRF
 {
+    template <typename ParameterType>
+    struct ParameterStruct
+    {
+        typedef ParameterType type;
+
+        ParameterType a0() { return _a0_a2; }
+        ParameterType a1() { return _a1_b1; }
+        ParameterType a2() { return _a0_a2; }
+        ParameterType b1() { return _a1_b1; }
+        ParameterType b2() { return _b2;    }
+
+        ParameterType _a0_a2, _a1_b1;
+        ParameterType _b2;
+    };
+
+    template <typename ParameterType>
+    struct makeParameter
+    {
+        typedef ParameterStruct<ParameterType> type;
+    };
+
     template < typename BiquadParameterStruct, typename ArgumentType >
     static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
     {
@@ -587,18 +677,36 @@ struct DesignBRF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret.a0 = toDouble<ParameterType>( fast_div( q * (1.f + K2), denom ) );
-        ret.a1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
-        ret.a2 = ret.a0;
+        ret._a0_a2 = toDouble<ParameterType>( fast_div( q * (1.f + K2), denom ) );
+        ret._a1_b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
 
-        ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
-        ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom     ) );
+        ret._b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom     ) );
         return ret;
     }
 };
 
 struct DesignAPF
 {
+    template <typename ParameterType>
+    struct ParameterStruct
+    {
+        typedef ParameterType type;
+
+        ParameterType a0() { return _a0_b2; }
+        ParameterType a1() { return _a1_b1; }
+        auto          a2() { return boost::simd::One<type>(); }
+        ParameterType b1() { return _a1_b1; }
+        ParameterType b2() { return _a0_b2; }
+
+        ParameterType _a0_b2, _a1_b1;
+    };
+
+    template <typename ParameterType>
+    struct makeParameter
+    {
+        typedef ParameterStruct<ParameterType> type;
+    };
+
     template < typename BiquadParameterStruct, typename ArgumentType >
     static BiquadParameterStruct designFilter ( ArgumentType cutoff, ArgumentType q )
     {
@@ -610,12 +718,8 @@ struct DesignAPF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret.a0 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
-        ret.a1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
-        ret.a2 = toDouble<ParameterType>(1.f);
-
-        ret.b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
-        ret.b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom ) );
+        ret._a0_b2 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
+        ret._a1_b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
         return ret;
     }
 };

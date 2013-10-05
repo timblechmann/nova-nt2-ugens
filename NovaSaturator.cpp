@@ -70,7 +70,7 @@ struct SaturationBase:
 		case calc_ScalarRate:
 		default:
 			_level = Parent::verifyLevel( in0(1) );
-			if (boost::simd::is_aligned( bufferSize(), 4 ) )
+            if (boost::simd::is_aligned( bufferSize(), 8 ) )
 				set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 8> > >();
 			else
 				set_calc_function<SaturationBase, &SaturationBase::run_i<float>>();

@@ -31,28 +31,29 @@
 
 namespace nova {
 
-template <typename SampleType, typename ParameterType>
+template <typename SampleType, typename ParameterStruct>
 struct Biquad
 {
     Biquad() :
         _y_1(0), _y_2(0)
     {}
 
+    typedef typename ParameterStruct::type ParameterType;
     typedef decltype(boost::simd::Zero<ParameterType>()) Zero;
 
-    template < typename InputFunctor, typename OutputFunctor, typename SlopeType = Zero >
+    template < typename InputFunctor, typename OutputFunctor, typename SlopeType>
     BOOST_FORCEINLINE void run ( InputFunctor & in, OutputFunctor & out, size_t count,
-                                 SlopeType a0Slope = SlopeType(), SlopeType a1Slope = SlopeType(), SlopeType a2Slope = SlopeType(),
-                                 SlopeType b1Slope = SlopeType(), SlopeType b2Slope = SlopeType())
+                                 SlopeType a0Slope, SlopeType a1Slope, SlopeType a2Slope,
+                                 SlopeType b1Slope, SlopeType b2Slope)
     {
         SampleType    y_1 = _y_1;
         SampleType    y_2 = _y_2;
 
-        ParameterType a0 = _a0;
-        ParameterType a1 = _a1;
-        ParameterType a2 = _a2;
-        ParameterType b1 = _b1;
-        ParameterType b2 = _b2;
+        ParameterType a0 = _parameters.a0();
+        ParameterType a1 = _parameters.a1();
+        ParameterType a2 = _parameters.a2();
+        ParameterType b1 = _parameters.b1();
+        ParameterType b2 = _parameters.b2();
 
         for (size_t i = 0; i != count; ++i) {
             SampleType input = in();
@@ -63,13 +64,11 @@ struct Biquad
             y_2 = y_1;
             y_1 = y_0;
 
-            if (!std::is_same<SlopeType, Zero>::value) {
-                a0 += a0Slope;
-                a1 += a1Slope;
-                a2 += a2Slope;
-                b1 += b1Slope;
-                b2 += b2Slope;
-            }
+            a0 += a0Slope;
+            a1 += a1Slope;
+            a2 += a2Slope;
+            b1 += b1Slope;
+            b2 += b2Slope;
 
             out(output);
         }
@@ -78,9 +77,39 @@ struct Biquad
         _y_2 = y_2;
     }
 
+    template < typename InputFunctor, typename OutputFunctor >
+    BOOST_FORCEINLINE void run ( InputFunctor & in, OutputFunctor & out, size_t count)
+    {
+        SampleType    y_1 = _y_1;
+        SampleType    y_2 = _y_2;
+
+        auto a0 = _parameters.a0();
+        auto a1 = _parameters.a1();
+        auto a2 = _parameters.a2();
+        auto b1 = _parameters.b1();
+        auto b2 = _parameters.b2();
+
+        for (size_t i = 0; i != count; ++i) {
+            SampleType input = in();
+
+            SampleType y_0;
+            SampleType output = tick( input, y_0, y_1, y_2, a0, a1, a2, b1, b2 );
+
+            y_2 = y_1;
+            y_1 = y_0;
+
+            out(output);
+        }
+
+        _y_1 = y_1;
+        _y_2 = y_2;
+    }
+
+    template <typename ParameterTypeA0, typename ParameterTypeA1, typename ParameterTypeA2,
+              typename ParameterTypeB1, typename ParameterTypeB2>
     BOOST_FORCEINLINE SampleType tick(SampleType input, SampleType & y_0, SampleType y_1, SampleType y_2,
-                                      ParameterType a0, ParameterType a1, ParameterType a2,
-                                      ParameterType b1, ParameterType b2)
+                                      ParameterTypeA0 a0, ParameterTypeA1 a1, ParameterTypeA2 a2,
+                                      ParameterTypeB1 b1, ParameterTypeB2 b2)
     {
         using namespace boost::simd;
 #if 0 //def __AVX__
@@ -106,19 +135,17 @@ struct Biquad
         return output;
     }
 
-    template < typename InputFunctor, typename OutputFunctor, typename SlopeType = Zero >
-    BOOST_FORCEINLINE void run_unrolled ( InputFunctor & in, OutputFunctor & out, size_t count_3, size_t count,
-                                          SlopeType a0Slope = SlopeType(), SlopeType a1Slope = SlopeType(), SlopeType a2Slope = SlopeType(),
-                                          SlopeType b1Slope = SlopeType(), SlopeType b2Slope = SlopeType())
+    template < typename InputFunctor, typename OutputFunctor >
+    BOOST_FORCEINLINE void run_unrolled ( InputFunctor & in, OutputFunctor & out, size_t count_3, size_t count)
     {
         SampleType    y_1 = _y_1;
         SampleType    y_2 = _y_2;
 
-        ParameterType a0 = _a0;
-        ParameterType a1 = _a1;
-        ParameterType a2 = _a2;
-        ParameterType b1 = _b1;
-        ParameterType b2 = _b2;
+        auto a0 = _parameters.a0();
+        auto a1 = _parameters.a1();
+        auto a2 = _parameters.a2();
+        auto b1 = _parameters.b1();
+        auto b2 = _parameters.b2();
 
         // unroll by 3
         for (size_t i = 0; i != count_3; ++i) {
@@ -128,34 +155,8 @@ struct Biquad
 
             SampleType y_0;
             SampleType output0 = tick( input0, y_0, y_1, y_2, a0, a1, a2, b1, b2 );
-
-            if (!std::is_same<SlopeType, Zero>::value) {
-                a0 += a0Slope;
-                a1 += a1Slope;
-                a2 += a2Slope;
-                b1 += b1Slope;
-                b2 += b2Slope;
-            }
-
-            SampleType output1 = tick( input0, y_2, y_0, y_1, a0, a1, a2, b1, b2 );
-
-            if (!std::is_same<SlopeType, Zero>::value) {
-                a0 += a0Slope;
-                a1 += a1Slope;
-                a2 += a2Slope;
-                b1 += b1Slope;
-                b2 += b2Slope;
-            }
-
-            SampleType output2 = tick( input0, y_1, y_2, y_0, a0, a1, a2, b1, b2 );
-
-            if (!std::is_same<SlopeType, Zero>::value) {
-                a0 += a0Slope;
-                a1 += a1Slope;
-                a2 += a2Slope;
-                b1 += b1Slope;
-                b2 += b2Slope;
-            }
+            SampleType output1 = tick( input1, y_2, y_0, y_1, a0, a1, a2, b1, b2 );
+            SampleType output2 = tick( input2, y_1, y_2, y_0, a0, a1, a2, b1, b2 );
 
             out(output0);
             out(output1);
@@ -170,13 +171,76 @@ struct Biquad
             y_2 = y_1;
             y_1 = y_0;
 
-            if (!std::is_same<SlopeType, Zero>::value) {
-                a0 += a0Slope;
-                a1 += a1Slope;
-                a2 += a2Slope;
-                b1 += b1Slope;
-                b2 += b2Slope;
-            }
+            out(output);
+        }
+
+        _y_1 = y_1;
+        _y_2 = y_2;
+    }
+
+    template < typename InputFunctor, typename OutputFunctor, typename SlopeType = Zero >
+    BOOST_FORCEINLINE void run_unrolled ( InputFunctor & in, OutputFunctor & out, size_t count_3, size_t count,
+                                          SlopeType a0Slope, SlopeType a1Slope, SlopeType a2Slope,
+                                          SlopeType b1Slope, SlopeType b2Slope)
+    {
+        SampleType    y_1 = _y_1;
+        SampleType    y_2 = _y_2;
+
+        ParameterType a0 = _parameters.a0();
+        ParameterType a1 = _parameters.a1();
+        ParameterType a2 = _parameters.a2();
+        ParameterType b1 = _parameters.b1();
+        ParameterType b2 = _parameters.b2();
+
+        // unroll by 3
+        for (size_t i = 0; i != count_3; ++i) {
+            SampleType input0 = in();
+            SampleType input1 = in();
+            SampleType input2 = in();
+
+            SampleType y_0;
+            SampleType output0 = tick( input0, y_0, y_1, y_2, a0, a1, a2, b1, b2 );
+
+            a0 += a0Slope;
+            a1 += a1Slope;
+            a2 += a2Slope;
+            b1 += b1Slope;
+            b2 += b2Slope;
+
+            SampleType output1 = tick( input1, y_2, y_0, y_1, a0, a1, a2, b1, b2 );
+
+            a0 += a0Slope;
+            a1 += a1Slope;
+            a2 += a2Slope;
+            b1 += b1Slope;
+            b2 += b2Slope;
+
+            SampleType output2 = tick( input2, y_1, y_2, y_0, a0, a1, a2, b1, b2 );
+
+            a0 += a0Slope;
+            a1 += a1Slope;
+            a2 += a2Slope;
+            b1 += b1Slope;
+            b2 += b2Slope;
+
+            out(output0);
+            out(output1);
+            out(output2);
+        }
+
+        for (size_t i = 0; i != count; ++i) {
+            SampleType input = in();
+
+            SampleType y_0;
+            SampleType output = tick( input, y_0, y_1, y_2, a0, a1, a2, b1, b2 );
+            y_2 = y_1;
+            y_1 = y_0;
+
+            a0 += a0Slope;
+            a1 += a1Slope;
+            a2 += a2Slope;
+            b1 += b1Slope;
+            b2 += b2Slope;
 
             out(output);
         }
@@ -185,8 +249,9 @@ struct Biquad
         _y_2 = y_2;
     }
 
+
     SampleType _y_1, _y_2;
-    ParameterType _a0, _a1, _a2, _b1, _b2;
+    ParameterStruct _parameters;
 };
 
 }
