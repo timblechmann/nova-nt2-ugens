@@ -16,29 +16,23 @@ endif()
 include_directories(${SC_PATH}/include/plugin_interface)
 include_directories(${SC_PATH}/include/common)
 include_directories(${SC_PATH}/external_libraries/nova-tt)
+include_directories(${SC_PATH}/external_libraries/boost)
 
-#include_directories(nt2/modules/boost/boostification)
 include_directories(nt2/build/include)
 
-#include_directories(nt2/modules/core/trigonometric/include)
-#include_directories(nt2/modules/sdk/functor/include)
-#include_directories(nt2/modules/sdk/meta/include)
-#include_directories(nt2/modules/sdk/config/include)
-#include_directories(nt2/modules/sdk/simd/include)
-#include_directories(nt2/modules/sdk/simd/include)
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    add_definitions(-std=c++11 -stdlib=libc++)
+    set(CMAKE_SHARED_LINKER_FLAGS "-stdlib=libc++ ${CMAKE_SHARED_LINKER_FLAGS}")
+endif()
 
-#include_directories(nt2/modules/boost/boostification/libs/simd/mini_nt2)
-
-
-add_definitions(-std=c++11)
-    add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
 if(${CMAKE_COMPILER_IS_GNUCXX})
+    add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
     add_definitions(-fvisibility=hidden)
 endif()
 
 SET(CMAKE_SHARED_LIBRARY_PREFIX "")
 
-file (GLOB headers *hpp)
+file(GLOB_RECURSE headers FOLLOW_SYMLINKS *hpp)
 
 add_library(NovaMultiFilters SHARED NovaMultiFilters.cpp ${headers})
 add_library(NovaAmbisonicUGens SHARED NovaAmbisonicUGens.cpp)

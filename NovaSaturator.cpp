@@ -23,7 +23,10 @@
 #include "boost/simd/operator/include/functions/minus.hpp"
 #include "boost/simd/operator/include/functions/multiplies.hpp"
 #include "boost/simd/operator/include/functions/plus.hpp"
-#include "boost/simd/constant/constants.hpp"
+
+#include "boost/simd/include/constants/one.hpp"
+#include "boost/simd/include/constants/two.hpp"
+#include "boost/simd/include/constants/quarter.hpp"
 
 #include "producer_consumer_functors.hpp"
 
@@ -34,7 +37,7 @@
 #include <nt2/include/functions/pow.hpp>
 #include <nt2/include/functions/pow_abs.hpp>
 
-#include "utils.hpp"
+#include "dsp/utils.hpp"
 
 namespace {
 

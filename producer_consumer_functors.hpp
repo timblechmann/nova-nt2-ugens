@@ -24,7 +24,9 @@
 #include "boost/simd/include/pack.hpp"
 #include "boost/simd/include/functions/aligned_load.hpp"
 #include "boost/simd/include/functions/aligned_store.hpp"
+#include "boost/simd/include/functions/extract.hpp"
 #include "boost/simd/include/functions/groups.hpp"
+#include "boost/simd/include/functions/insert.hpp"
 #include "boost/simd/include/functions/split.hpp"
 
 #include "boost/simd/sdk/meta/cardinal_of.hpp"

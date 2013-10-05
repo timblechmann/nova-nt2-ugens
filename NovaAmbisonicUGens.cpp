@@ -18,14 +18,13 @@
 
 #include "SC_PlugIn.hpp"
 
+#include "producer_consumer_functors.hpp"
+
 #include "boost/simd/include/pack.hpp"
 #include "boost/simd/include/native.hpp"
 #include "boost/simd/operator/include/functions/minus.hpp"
 #include "boost/simd/operator/include/functions/multiplies.hpp"
 #include "boost/simd/operator/include/functions/plus.hpp"
-#include "boost/simd/constant/constants.hpp"
-
-#include "producer_consumer_functors.hpp"
 
 #include "boost/simd/arithmetic/include/functions/abs.hpp"
 #include "boost/simd/arithmetic/include/functions/fast_rec.hpp"
@@ -35,7 +34,6 @@
 
 #include <nt2/include/functions/sincos.hpp>
 
-#include "utils.hpp"
 
 namespace {
 
