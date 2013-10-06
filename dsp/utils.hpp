@@ -52,6 +52,31 @@ struct as_pack
 									 >::type type;
 };
 
+
+
+
+template <typename ReturnType, typename ArgumentType>
+BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
+{
+	using namespace boost::simd;
+	ReturnType ret;
+
+	const size_t size = meta::cardinal_of<ReturnType>::value;
+	typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
+
+	typedef typename boost::mpl::if_c<size == 1, ArgScalar, pack<ArgScalar, size>>::type EvaluatedArgType;
+
+	const EvaluatedArgType evaluatedArg = arg;
+
+	for (size_t i = 0; i != size; ++i) {
+		auto scalar = extract(evaluatedArg, i);
+		insert(scalar, ret, i);
+	}
+
+	return ret;
+}
+
+
 }
 
 #endif // UTILS_HPP

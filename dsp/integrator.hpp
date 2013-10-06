@@ -22,9 +22,12 @@
 
 #include <type_traits>
 
+#include <boost/simd/constant/include/constants/one.hpp>
 #include <boost/simd/constant/include/constants/zero.hpp>
 #include <boost/simd/operator/include/functions/multiplies.hpp>
 #include <boost/simd/operator/include/functions/plus.hpp>
+
+#include "utils.hpp"
 
 namespace nova {
 
@@ -35,11 +38,6 @@ struct Integrator
         _y_1(0.f),
         _a(a)
     {}
-
-    void set_a (ParameterType a)
-    {
-        _a = a;
-    }
 
     typedef decltype(boost::simd::Zero<ParameterType>()) Zero;
 
@@ -83,12 +81,35 @@ struct Integrator
         _y_1 = y_1;
     }
 
+	template < typename SigInputFunctor, typename ParamInputFunctor, typename OutputFunctor>
+	inline void run_ar ( SigInputFunctor & sigIn, ParamInputFunctor & paramIn, OutputFunctor & out, size_t count)
+	{
+		SampleType    y_1 = _y_1;
+		for (size_t i = 0; i != count; ++i)
+		{
+			auto x  = sigIn();
+			auto fb = paramIn();
+
+			auto clippedFB = checkParameter(fb);
+			auto y  = tick(x, y_1, toDouble<ParameterType>( clippedFB ) );
+			out(y);
+		}
+		_y_1 = y_1;
+	}
+
     static inline SampleType tick( SampleType input, SampleType & y_1, ParameterType a )
     {
         SampleType output = input + y_1 * a;
         y_1 = output;
         return output;
     }
+
+	template <typename Arg>
+	static auto checkParameter( Arg fb )
+	{
+		return clip( fb, boost::simd::Zero<Arg>(), boost::simd::One<Arg>() );
+	}
+
 
     ParameterType _a;
 private:

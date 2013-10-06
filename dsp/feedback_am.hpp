@@ -23,8 +23,11 @@
 #include <type_traits>
 
 #include <boost/simd/constant/include/constants/one.hpp>
+#include <boost/simd/constant/include/constants/zero.hpp>
 #include <boost/simd/operator/include/functions/multiplies.hpp>
 #include <boost/simd/operator/include/functions/plus.hpp>
+
+#include "utils.hpp"
 
 namespace nova {
 
@@ -36,11 +39,6 @@ struct FeedbackAM
 		_fb(fb)
 	{}
 
-	void set_fb (ParameterType fb)
-	{
-		_fb = fb;
-	}
-
 	typedef decltype(boost::simd::Zero<ParameterType>()) Zero;
 
 	template < typename InputFunctor, typename OutputFunctor, typename ASlope = Zero >
@@ -49,6 +47,7 @@ struct FeedbackAM
 		SampleType    y_1 = _y_1;
 		ParameterType fb   = _fb;
 
+#if 0
 		const size_t unroll2 = count / 2;
 		const size_t remain  = count & 1;
 
@@ -67,6 +66,8 @@ struct FeedbackAM
 			out(y0);
 			out(y1);
 		}
+#endif
+		size_t remain = count;
 
 		for (size_t i = 0; i != remain; ++i) {
 			SampleType x = in();
@@ -81,6 +82,28 @@ struct FeedbackAM
 			_fb = fb;
 
 		_y_1 = y_1;
+	}
+
+	template < typename SigInputFunctor, typename ParamInputFunctor, typename OutputFunctor>
+	inline void run_ar ( SigInputFunctor & sigIn, ParamInputFunctor & paramIn, OutputFunctor & out, size_t count)
+	{
+		SampleType    y_1 = _y_1;
+		for (size_t i = 0; i != count; ++i)
+		{
+			auto x  = sigIn();
+			auto fb = paramIn();
+
+			auto clippedFB = checkParameter(fb);
+			auto y  = tick(x, y_1, toDouble<ParameterType>( clippedFB ) );
+			out(y);
+		}
+		_y_1 = y_1;
+	}
+
+	template <typename Arg>
+	static auto checkParameter( Arg fb )
+	{
+		return clip( fb, boost::simd::Zero<Arg>(), Arg(1.9f) );
 	}
 
 	static inline SampleType tick( SampleType input, SampleType & y_1, ParameterType fb )

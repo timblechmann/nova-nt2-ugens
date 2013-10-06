@@ -17,7 +17,7 @@
  */
 
 
-#include "SC_PlugIn.hpp"
+#include "NovaUnitFacade.hpp"
 
 #include <boost/mpl/if.hpp>
 
@@ -27,7 +27,7 @@
 #include "producer_consumer_functors.hpp"
 
 #include <boost/math/constants/constants.hpp>
-#include <boost/simd/constant/constants.hpp>
+#include <boost/simd/include/constants/pi.hpp>
 
 #include <boost/simd/sdk/simd/logical.hpp>
 #include <boost/simd/include/functions/compare_equal.hpp>
@@ -43,10 +43,6 @@
 #include "dsp/utils.hpp"
 
 #include <cmath>
-
-#include "NovaUGensCommon.hpp"
-
-namespace {
 
 using nova::NovaUnit;
 
@@ -135,70 +131,50 @@ typedef NovaLeakDC<8> NovaLeakDC8;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <int NumberOfChannels>
-struct NovaIntegrator:
-    public SCUnit
-{
-    typedef boost::simd::pack<double, NumberOfChannels> vDouble;
-    typedef nova::Integrator<vDouble, double> Filter;
+namespace nova {
+namespace      {
 
-    static const size_t IndexOfCoefficient = NumberOfChannels;
+template <size_t NumberOfChannels, bool ScalarArguments = true>
+struct NovaIntegrator:
+	public NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments>
+{
+	typedef NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
+
+	typedef Integrator<typename Base::SampleType, typename Base::ParameterDSPType> Filter;
+
+	struct DSPEngine:
+		Filter
+	{
+		template <typename T>
+		void setParameter( T const & t) { Filter::_a = t; }
+
+		auto getParameter() { return Filter::_a; }
+	};
 
     NovaIntegrator()
-    {
-        initFilter(in0(IndexOfCoefficient));
+    {}
 
-        switch (inRate(IndexOfCoefficient))
-        {
-        case calc_ScalarRate:
-            set_calc_function<NovaIntegrator, &NovaIntegrator::next_i>();
-            break;
+	template <typename AType>
+	static auto checkParameter(AType const & a)
+	{
+		return Filter::checkParameter(a);
+	}
 
-        case calc_BufRate:
-        default:
-            _coeff = std::numeric_limits<float>::quiet_NaN();
-            set_calc_function<NovaIntegrator, &NovaIntegrator::next_k>();
-        }
-    }
+	static DSPEngine & getDSPEngine( NovaIntegrator * self )
+	{
+		return self->_filter;
+	}
 
-    void initFilter(float leakFactor)
-    {
-        _filter.set_a( leakFactor );
-        _coeff = leakFactor;
-    }
-
-    void next_i(int inNumSamples)
-    {
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto outFn = nova::Deinterleaver<vDouble>(this);
-
-        _filter.run(inFn, outFn, inNumSamples);
-    }
-
-    void next_k(int inNumSamples)
-    {
-        float newCoeff = in0(IndexOfCoefficient);
-        if (newCoeff != _coeff) {
-            auto slopeA = calcSlope(newCoeff, _coeff);
-            _coeff = newCoeff;
-
-            auto inFn  = nova::Interleaver<vDouble>(this);
-            auto outFn = nova::Deinterleaver<vDouble>(this);
-
-            _filter.run(inFn, outFn, inNumSamples, slopeA);
-            _filter.set_a( newCoeff );
-        } else {
-            next_i(inNumSamples);
-        }
-    }
-
-    Filter _filter;
-    float _coeff;
+	DSPEngine _filter;
 };
 
-typedef NovaIntegrator<2> NovaIntegrator2;
-typedef NovaIntegrator<4> NovaIntegrator4;
-typedef NovaIntegrator<8> NovaIntegrator8;
+}
+}
+
+typedef nova::NovaIntegrator<1> NovaIntegrator;
+typedef nova::NovaIntegrator<2> NovaIntegrator2;
+typedef nova::NovaIntegrator<4> NovaIntegrator4;
+typedef nova::NovaIntegrator<8> NovaIntegrator8;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -217,27 +193,6 @@ struct BiquadParameterStruct
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-template <int N>
-struct InputInterleaver
-{
-    static const size_t size = N;
-    static const bool isScalar = (size == 1);
-    typedef boost::simd::pack<float,  size> vFloat;
-    typedef typename boost::mpl::if_c< isScalar, float, vFloat>::type HostParameterType;
-
-    inline static HostParameterType read( SCUnit * unit, size_t index )
-    {
-        HostParameterType ret;
-
-        for (size_t i = 0; i != size; ++i) {
-            float input = unit->in0(index + i);
-            boost::simd::insert(input, ret, i);
-        }
-        return ret;
-    }
-};
-
-
 
 template <typename FilterDesigner, size_t Size, bool ScalarArguments = true>
 struct NovaBiquadBase:
@@ -247,9 +202,7 @@ struct NovaBiquadBase:
     static const int FreqInputIndex = Size;
     static const int QInputIndex    = Size + ParameterSize;
 
-    static const bool IsScalar = ScalarArguments || (Size == 1);
-
-    typedef InputInterleaver<ParameterSize> ParameterReader;
+	typedef nova::InputInterleaver<ParameterSize> ParameterReader;
 
 	typedef typename nova::as_pack<float,  Size>::type vFloat;
 	typedef typename nova::as_pack<double, Size>::type vDouble;
@@ -264,15 +217,7 @@ struct NovaBiquadBase:
     {
         initFilter();
 
-        bool isScalarRate = true;
-        for ( size_t index = Size; index != (Size + 2 * ParameterSize); ++index) {
-            if (inRate(index) != calc_ScalarRate) {
-                isScalarRate = false;
-                break;
-            }
-        }
-
-        if (isScalarRate)
+		if (isScalarRate (FreqInputIndex, FreqInputIndex + ParameterSize) )
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_i, &NovaBiquadBase::next_1>();
         else
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_k, &NovaBiquadBase::next_1>();
@@ -479,28 +424,7 @@ struct NovaBiquad4thOrder:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-
-template <typename ReturnType, typename ArgumentType>
-BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
-{
-    using namespace boost::simd;
-    ReturnType ret;
-
-    const size_t size = meta::cardinal_of<ReturnType>::value;
-    typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
-
-    typedef typename boost::mpl::if_c<size == 1, ArgScalar, pack<ArgScalar, size>>::type EvaluatedArgType;
-
-    const EvaluatedArgType evaluatedArg = arg;
-
-    for (size_t i = 0; i != size; ++i) {
-        auto scalar = extract(evaluatedArg, i);
-        insert(scalar, ret, i);
-    }
-
-    return ret;
-}
+using nova::toDouble;
 
 struct DesignLPF
 {
@@ -846,7 +770,6 @@ DEFINE_XTORS(NovaIntegrator2)
 DEFINE_XTORS(NovaIntegrator4)
 DEFINE_XTORS(NovaIntegrator8)
 
-}
 
 PluginLoad(NovaFilters)
 {

@@ -17,78 +17,51 @@
  *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "SC_PlugIn.hpp"
-
-#include "producer_consumer_functors.hpp"
+#include "NovaUnitFacade.hpp"
 
 #include "dsp/feedback_am.hpp"
-#include "dsp/utils.hpp"
 
 static InterfaceTable *ft;
 
 namespace nova {
+namespace      {
 
-template <int NumberOfChannels>
+
+template <int NumberOfChannels, bool ScalarArguments = false>
 struct NovaFeedbackAM:
-	public SCUnit
+	public NovaUnitUnary<NovaFeedbackAM<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments>
 {
-	typedef typename nova::as_pack<double, 1>::type vDouble;
-	typedef nova::FeedbackAM<vDouble, double> Filter;
+	typedef NovaUnitUnary<NovaFeedbackAM<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
 
-	static const size_t IndexOfCoefficient = NumberOfChannels;
+	typedef nova::FeedbackAM<typename Base::SampleType, typename Base::ParameterDSPType> Filter;
+
+	struct DSPEngine:
+		Filter
+	{
+		template <typename T>
+		void setParameter( T const & t) { Filter::_fb = t; }
+
+		auto getParameter() { return Filter::_fb; }
+	};
 
 	NovaFeedbackAM()
+	{}
+
+	template <typename AType>
+	static auto checkParameter(AType const & a)
 	{
-		initFilter(in0(IndexOfCoefficient));
-
-		switch (inRate(IndexOfCoefficient))
-		{
-		case calc_ScalarRate:
-			set_calc_function<NovaFeedbackAM, &NovaFeedbackAM::next_i>();
-			break;
-
-		case calc_BufRate:
-		default:
-			_coeff = std::numeric_limits<float>::quiet_NaN();
-			set_calc_function<NovaFeedbackAM, &NovaFeedbackAM::next_k>();
-		}
+		return Filter::checkParameter(a);
 	}
 
-	void initFilter(float leakFactor)
+	static DSPEngine & getDSPEngine( NovaFeedbackAM * self )
 	{
-		_filter.set_fb( leakFactor );
-		_coeff = leakFactor;
+		return self->_filter;
 	}
 
-	void next_i(int inNumSamples)
-	{
-		auto inFn  = nova::Interleaver<vDouble>(this);
-		auto outFn = nova::Deinterleaver<vDouble>(this);
-
-		_filter.run(inFn, outFn, inNumSamples);
-	}
-
-	void next_k(int inNumSamples)
-	{
-		float newCoeff = in0(IndexOfCoefficient);
-		if (newCoeff != _coeff) {
-			auto slopeA = calcSlope(newCoeff, _coeff);
-			_coeff = newCoeff;
-
-			auto inFn  = nova::Interleaver<vDouble>(this);
-			auto outFn = nova::Deinterleaver<vDouble>(this);
-
-			_filter.run(inFn, outFn, inNumSamples, slopeA);
-			_filter.set_fb( newCoeff );
-		} else {
-			next_i(inNumSamples);
-		}
-	}
-
-	Filter _filter;
-	float _coeff;
+	DSPEngine _filter;
 };
 
+}
 }
 
 typedef nova::NovaFeedbackAM<1> NovaFeedbackAM;
@@ -96,10 +69,18 @@ typedef nova::NovaFeedbackAM<2> NovaFeedbackAM2;
 typedef nova::NovaFeedbackAM<4> NovaFeedbackAM4;
 typedef nova::NovaFeedbackAM<8> NovaFeedbackAM8;
 
+typedef nova::NovaFeedbackAM<2, true> NovaFeedbackAM2_2;
+typedef nova::NovaFeedbackAM<4, true> NovaFeedbackAM4_4;
+typedef nova::NovaFeedbackAM<8, true> NovaFeedbackAM8_8;
+
 DEFINE_XTORS(NovaFeedbackAM)
 DEFINE_XTORS(NovaFeedbackAM2)
 DEFINE_XTORS(NovaFeedbackAM4)
 DEFINE_XTORS(NovaFeedbackAM8)
+
+DEFINE_XTORS(NovaFeedbackAM2_2)
+DEFINE_XTORS(NovaFeedbackAM4_4)
+DEFINE_XTORS(NovaFeedbackAM8_8)
 
 PluginLoad(FBAM)
 {
@@ -108,4 +89,8 @@ PluginLoad(FBAM)
 	DefineSimpleUnit(NovaFeedbackAM2);
 	DefineSimpleUnit(NovaFeedbackAM4);
 	DefineSimpleUnit(NovaFeedbackAM8);
+
+	DefineSimpleUnit(NovaFeedbackAM2_2);
+	DefineSimpleUnit(NovaFeedbackAM4_4);
+	DefineSimpleUnit(NovaFeedbackAM8_8);
 }

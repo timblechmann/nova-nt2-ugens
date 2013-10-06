@@ -21,6 +21,8 @@
 
 #include "SC_PlugIn.hpp"
 
+#include "dsp/utils.hpp"
+
 #include "boost/simd/include/pack.hpp"
 #include "boost/simd/include/functions/aligned_load.hpp"
 #include "boost/simd/include/functions/aligned_store.hpp"
@@ -33,7 +35,7 @@
 
 namespace nova {
 
-template <typename OutputType>
+template <typename OutputType, size_t StartIndex = 0>
 struct Interleaver
 {
 	static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
@@ -46,7 +48,7 @@ struct Interleaver
 	{
 		OutputType ret;
 		for (size_t i = 0; i != N; ++i)
-			boost::simd::insert(unit->in(i)[cnt], ret, i);
+			boost::simd::insert(unit->in( StartIndex + i )[cnt], ret, i);
 
 		cnt += 1;
 		return ret;
@@ -185,6 +187,26 @@ struct Wire
 
 	SampleType _data;
 };
+
+
+template <size_t N>
+struct InputInterleaver
+{
+	typedef typename as_pack<float, N>::type HostParameterType;
+
+	inline static HostParameterType read( SCUnit * unit, size_t index )
+	{
+		HostParameterType ret;
+
+		for (size_t i = 0; i != N; ++i) {
+			float input = unit->in0(index + i);
+			boost::simd::insert(input, ret, i);
+		}
+		return ret;
+	}
+};
+
+
 
 }
 
