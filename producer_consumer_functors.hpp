@@ -35,6 +35,70 @@
 
 namespace nova {
 
+template <int N>
+struct packGenerator
+{
+};
+
+template <>
+struct packGenerator<1>
+{
+	template <typename Result, typename Functor>
+	static Result generate(Functor const & f)
+	{
+		Result ret = f();
+		return ret;
+	}
+};
+
+template <>
+struct packGenerator<2>
+{
+	template <typename Result, typename Functor>
+	static Result generate(Functor const & f)
+	{
+		auto a = f();
+		auto b = f();
+
+		return Result(a, b);
+	}
+};
+
+template <>
+struct packGenerator<4>
+{
+	template <typename Result, typename Functor>
+	static Result generate(Functor const & f)
+	{
+		auto a = f();
+		auto b = f();
+		auto c = f();
+		auto d = f();
+
+		return Result(a, b, c, d);
+	}
+};
+
+template <>
+struct packGenerator<8>
+{
+	template <typename Result, typename Functor>
+	static Result generate(Functor const & f)
+	{
+		auto a = f();
+		auto b = f();
+		auto c = f();
+		auto d = f();
+		auto e = f();
+		auto f_ = f();
+		auto g = f();
+		auto h = f();
+
+		return Result(a, b, c, d, e, f_, g, h);
+	}
+};
+
+
 template <typename OutputType, size_t StartIndex = 0>
 struct Interleaver
 {
@@ -46,9 +110,14 @@ struct Interleaver
 
 	BOOST_FORCEINLINE OutputType operator() ()
 	{
-		OutputType ret;
-		for (size_t i = 0; i != N; ++i)
-			boost::simd::insert(unit->in( StartIndex + i )[cnt], ret, i);
+//		OutputType ret;
+//		for (size_t i = 0; i != N; ++i)
+//			boost::simd::insert(unit->in( StartIndex + i )[cnt], ret, i);
+
+		size_t i = 0;
+		OutputType ret = packGenerator<N>::template generate<OutputType>([&](){
+			return unit->in( StartIndex + i++ )[cnt];
+		});
 
 		cnt += 1;
 		return ret;

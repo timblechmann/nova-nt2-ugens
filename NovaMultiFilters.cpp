@@ -35,8 +35,6 @@
 #include <boost/simd/include/functions/negate.hpp>
 #include <boost/simd/include/functions/fast_divides.hpp>
 
-#include <boost/simd/operator/operator.hpp>
-
 #include <nt2/include/functions/tan.hpp>
 
 
