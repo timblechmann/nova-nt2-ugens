@@ -42,6 +42,7 @@ set (sources
   NovaMultiFilters.cpp
   NovaSaturator.cpp
   NovaFeedbackAM.cpp
+  DiodeLadderFilter
 )
 
 foreach(src ${sources})
