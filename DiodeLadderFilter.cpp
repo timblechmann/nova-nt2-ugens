@@ -319,12 +319,6 @@ private:
 	{
 		InternalType a, a_inv, a2, b, b2, c, g, g0;
 
-		InternalType z0 = z[0];
-		InternalType z1 = z[1];
-		InternalType z2 = z[2];
-		InternalType z3 = z[3];
-		InternalType z4 = z[4];
-
 		const float * inSig = zin(0);
 		float * outSig = zout(0);
 
@@ -336,7 +330,7 @@ private:
 			loop(inNumSamples, [&] {
 				InternalType x = ZXP(inSig);
 
-				ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, z0, z1, z2, z3, z4, qParameter, hpfParam);
+				ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
 			});
 		} else {
 			ParameterType oldfreq = _freq;
@@ -348,15 +342,9 @@ private:
 				calcFilterCoefficients(oldfreq, a, a2, a_inv, b, b2, c, g, g0);
 				oldfreq += freqSlope;
 
-				ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, z0, z1, z2, z3, z4, qParameter, hpfParam);
+				ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
 			});
 		}
-
-		z[0] = z0;
-		z[1] = z1;
-		z[2] = z2;
-		z[3] = z3;
-		z[4] = z4;
 	}
 
 	template <typename QParam, typename HPFParam>
@@ -366,11 +354,6 @@ private:
 		const ParameterType * inFreq = zin( freqInputIndex );
 		float * outSig = zout(0);
 
-		InternalType z0 = z[0];
-		InternalType z1 = z[1];
-		InternalType z2 = z[2];
-		InternalType z3 = z[3];
-		InternalType z4 = z[4];
 		for (int i = 0; i != inNumSamples; ++i) {
 			ParameterType freq = ZXP(inFreq);
 
@@ -378,18 +361,13 @@ private:
 			calcFilterCoefficients(freq, a, a2, a_inv, b, b2, c, g, g0);
 
 			InternalType x = ZXP(inSig);
-			ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, z0, z1, z2, z3, z4, qParameter, hpfParam);
+			ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
 		}
-		z[0] = z0;
-		z[1] = z1;
-		z[2] = z2;
-		z[3] = z3;
-		z[4] = z4;
 	}
 
 	template <typename QParam, typename HPFParam>
-	static InternalType tick(InternalType x, InternalType a, InternalType a2, InternalType ainv, InternalType b, InternalType b2, InternalType c, InternalType g, InternalType g0,
-							 InternalType & z0, InternalType & z1, InternalType & z2, InternalType & z3, InternalType & z4, QParam & qParameter, HPFParam & hpfParam)
+	InternalType tick(InternalType x, InternalType a, InternalType a2, InternalType ainv, InternalType b, InternalType b2,
+					  InternalType c, InternalType g, InternalType g0, QParam & qParameter, HPFParam & hpfParam)
 	{
 		using namespace boost::simd;
 
@@ -400,30 +378,30 @@ private:
 		hpfParam.getParameters(ah, bh);
 
 		// current state
-		const auto s0 = (a2*a*z0 + a2*b*z1 + z2 * (b2 - 2*a2) * a + z3 * (b2 - 3 * a2) * b ) * c;
-		const auto s = bh * s0 - z4;
+		const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - 2*a2) * a + z[3] * (b2 - 3 * a2) * b ) * c;
+		const InternalType s = bh * s0 - z[4];
 
 		// solve feedback loop (linear)
 		InternalType y5 = fast_div( g*x + s, One<InternalType>() + g*k );
 
 		// input clipping
-		const auto y0 = saturate(x - k*y5);
+		const InternalType y0 = saturate(x - k*y5);
 		y5 = g*y0 + s;
 
 		// compute integrator outputs
-		const auto y4 = g0*y0 + s0;
-		const auto y3 = (b*y4 - z3) * ainv;
-		const auto y2 = (b*y3 - a*y4 - z2) * ainv;
-		const auto y1 = (b*y2 - a*y3 - z1) * ainv;
+		const InternalType y4 = g0*y0 + s0;
+		const InternalType y3 = (b*y4 - z[3]) * ainv;
+		const InternalType y2 = (b*y3 - a*y4 - z[2]) * ainv;
+		const InternalType y1 = (b*y2 - a*y3 - z[1]) * ainv;
 
 		const auto two_a = a * 2;
 
 		// update filter state
-		z0 += 2 * two_a * (y0 - y1 + y2);
-		z1 +=     two_a * (y1 - 2*y2 + y3);
-		z2 +=     two_a * (y2 - 2*y3 + y4);
-		z3 +=     two_a * (y3 - 2*y4);
-		z4 = bh*y4 + ah*y5;
+		z[0] += 2 * two_a * (y0 - y1 + y2);
+		z[1] +=     two_a * (y1 - 2*y2 + y3);
+		z[2] +=     two_a * (y2 - 2*y3 + y4);
+		z[3] +=     two_a * (y3 - 2*y4);
+		z[4] = bh*y4 + ah*y5;
 
 		InternalType result = A * y4;
 
