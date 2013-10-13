@@ -29,7 +29,7 @@ endif()
 if(${CMAKE_COMPILER_IS_GNUCXX})
     add_definitions(-std=c++1y)
     add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
-    add_definitions(-fvisibility=hidden)
+    add_definitions(-fvisibility=hidden -ffast-math -fno-finite-math-only)
 endif()
 
 SET(CMAKE_SHARED_LIBRARY_PREFIX "")
