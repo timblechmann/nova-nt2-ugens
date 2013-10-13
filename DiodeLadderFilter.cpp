@@ -25,6 +25,8 @@
 
 #include "dsp/utils.hpp"
 
+#include "producer_consumer_functors.hpp"
+
 #include <boost/simd/include/functions/fast_divides.hpp>
 #include <boost/simd/include/functions/fast_rec.hpp>
 
@@ -139,7 +141,7 @@ struct HPFParameter<slope, InternalType>
 
 // TODO: add some oversampling
 struct DiodeLadderFilter:
-		public SCUnit
+	public SCUnit
 {
 	typedef float  ParameterType;
 	typedef double InternalType;
@@ -319,18 +321,20 @@ private:
 	{
 		InternalType a, a_inv, a2, b, b2, c, g, g0;
 
-		const float * inSig = zin(0);
-		float * outSig = zout(0);
+		nova::Interleaver<InternalType>  inSig( this );
+		nova::Interleaver<ParameterType, freqInputIndex> inFreq( this );
+		ParameterType newFreq = inFreq();
 
-		ParameterType newFreq = in0( freqInputIndex );
+		nova::Deinterleaver<InternalType> outSig( this );
 
 		if (newFreq == _freq) {
 			calcFilterCoefficients(_freq, a, a2, a_inv, b, b2, c, g, g0);
 
 			loop(inNumSamples, [&] {
-				InternalType x = ZXP(inSig);
+				InternalType x = inSig();
 
-				ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+				auto out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+				outSig( out );
 			});
 		} else {
 			ParameterType oldfreq = _freq;
@@ -338,11 +342,12 @@ private:
 			_freq = newFreq;
 
 			loop(inNumSamples, [&] {
-				InternalType x = ZXP(inSig);
+				InternalType x = inSig();
 				calcFilterCoefficients(oldfreq, a, a2, a_inv, b, b2, c, g, g0);
 				oldfreq += freqSlope;
 
-				ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+				auto out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+				outSig( out );
 			});
 		}
 	}
@@ -350,18 +355,19 @@ private:
 	template <typename QParam, typename HPFParam>
 	void next_a(int inNumSamples, QParam & qParameter, HPFParam & hpfParam)
 	{
-		const float * inSig = zin(0);
-		const ParameterType * inFreq = zin( freqInputIndex );
-		float * outSig = zout(0);
+		nova::Interleaver<InternalType>                  inSig( this );
+		nova::Interleaver<ParameterType, freqInputIndex> inFreq( this );
+		nova::Deinterleaver<InternalType>                outSig( this );
 
 		for (int i = 0; i != inNumSamples; ++i) {
-			ParameterType freq = ZXP(inFreq);
+			ParameterType freq = inFreq();
 
 			InternalType a, a_inv, a2, b, b2, c, g, g0;
 			calcFilterCoefficients(freq, a, a2, a_inv, b, b2, c, g, g0);
 
-			InternalType x = ZXP(inSig);
-			ZXP(outSig) = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+			InternalType x = inSig();
+			auto out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+			outSig(out);
 		}
 	}
 
