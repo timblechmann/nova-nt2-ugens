@@ -27,6 +27,10 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 endif()
 
 if(${CMAKE_COMPILER_IS_GNUCXX})
+    if(APPLE)
+      add_definitions(-Wa,-q) # workaround for homebrew's gcc
+    endif()
+
     add_definitions(-std=c++1y)
     add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
     add_definitions(-fvisibility=hidden -ffast-math -fno-finite-math-only)
