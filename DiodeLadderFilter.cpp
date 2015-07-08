@@ -26,11 +26,16 @@
 #include "dsp/utils.hpp"
 
 #include "producer_consumer_functors.hpp"
+#include "NovaUGensCommon.hpp"
 
 #include <boost/simd/include/functions/fast_divides.hpp>
 #include <boost/simd/include/functions/fast_rec.hpp>
+#include <boost/simd/include/functions/compare_equal.hpp>
+#include <boost/simd/sdk/meta/as_logical.hpp>
 
 static InterfaceTable *ft;
+
+namespace nova {
 
 // adapted from DiodeLadderFilter
 //
@@ -140,26 +145,23 @@ struct HPFParameter<slope, InternalType>
 
 
 // TODO: add some oversampling
+template <size_t Channels, bool hasScalarArguments>
 struct DiodeLadderFilter:
-	public SCUnit
+	public NovaUnit
 {
-	typedef float  ParameterType;
-	typedef double InternalType;
-	typedef double InternalParameterType;
+	static const size_t numberOfChannels    = Channels;
+	static const size_t parameterInputSize  = hasScalarArguments ? 1 : Channels;
 
-	static const size_t numberOfChannels    = 1;
-	static const size_t parameterInputSize  = 1;
+	typedef typename nova::as_pack<float,  parameterInputSize>::type ParameterType;
+	typedef typename nova::as_pack<double, numberOfChannels>::type   InternalType;
+	typedef typename nova::as_pack<double, parameterInputSize>::type InternalParameterType;
+
+	typedef nova::InputInterleaver<parameterInputSize> ParameterReader;
+
 
 	static const size_t freqInputIndex = numberOfChannels + 1;
 	static const size_t qInputIndex    = freqInputIndex   + parameterInputSize;
 	static const size_t hpfInputIndex  = qInputIndex      + parameterInputSize;
-
-
-	int inRate(int start, int end)
-	{
-		// dummy
-		return SCUnit::inRate(start);
-	}
 
 public:
 	DiodeLadderFilter()
@@ -177,7 +179,6 @@ public:
 		const auto freqRate = inRate(freqInputIndex, parameterInputSize);
 		const auto qRate    = inRate(qInputIndex,    parameterInputSize);
 		const auto hpfRate  = inRate(hpfInputIndex,  parameterInputSize);
-
 
 		if (freqRate == calc_FullRate) {
 			switch ( qRate ) {
@@ -250,16 +251,18 @@ private:
 		using namespace boost::simd;
 		switch ( QRate ) {
 		case calc_ScalarRate: {
-			QParameter<scalar, InternalType> qParam(m_k, m_A);
+			QParameter<scalar, InternalParameterType> qParam(m_k, m_A);
 			next_selectHPF<AudioRateFrequency, HPFRate>(inNumSamples, qParam);
 			return;
 		}
 
 		default: {
-			ParameterType newQ = in0( qInputIndex );
+			ParameterType newQ = ParameterReader::read(this, qInputIndex );
 			newQ = nova::clip(newQ, Zero<ParameterType>(), One<ParameterType>());
 
-			if (newQ != _q) {
+			typename meta::as_logical<ParameterType>::type qConstant = compare_equal( newQ, _q );
+
+			if (!qConstant) {
 				InternalParameterType oldA = m_A, oldk = m_k;
 				InternalParameterType newA, newk;
 
@@ -268,8 +271,8 @@ private:
 				m_k = newk;
 				_q = newQ;
 
-				InternalType kSlope = calcSlope(newk, oldk);
-				InternalType ASlope = calcSlope(newA, oldA);
+				InternalParameterType kSlope = calcSlope(newk, oldk);
+				InternalParameterType ASlope = calcSlope(newA, oldA);
 
 				QParameter<slope, InternalParameterType> qParam(oldk, kSlope, oldA, ASlope);
 				next_selectHPF<AudioRateFrequency, HPFRate>(inNumSamples, qParam);
@@ -285,6 +288,8 @@ private:
 	template <bool AudioRateFrequency, int HPFRate, typename QParam>
 	void next_selectHPF(int inNumSamples, QParam & qParam)
 	{
+		using namespace boost::simd;
+
 		switch (HPFRate) {
 		case calc_ScalarRate: {
 			HPFParameter<scalar, InternalParameterType> hpfParam(m_ah, m_bh);
@@ -293,8 +298,11 @@ private:
 		}
 
 		default: {
-			ParameterType newHPCutoff    = in0( hpfInputIndex );
-			if (newHPCutoff != _hpCutoff) {
+			ParameterType newHPCutoff = ParameterReader::read(this, hpfInputIndex );
+
+			typename meta::as_logical<ParameterType>::type hpfConstant = compare_equal( newHPCutoff, _hpCutoff );
+
+			if (!hpfConstant) {
 				InternalParameterType oldA = m_ah, oldB = m_bh;
 				InternalParameterType newA, newB;
 				InternalParameterType fc = newHPCutoff * sampleDur();
@@ -367,7 +375,7 @@ private:
 			calcFilterCoefficients(freq, a, a2, a_inv, b, b2, c, g, g0);
 
 			InternalType x = inSig();
-			auto out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
+			InternalType out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
 			outSig(out);
 		}
 	}
@@ -386,7 +394,7 @@ private:
 		hpfParam.getParameters(ah, bh);
 
 		// current state
-		const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - 2*a2) * a + z[3] * (b2 - 3 * a2) * b ) * c;
+		const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - 2.0*a2) * a + z[3] * (b2 - 3.0 * a2) * b ) * c;
 		const InternalType s = bh * s0 - z[4];
 
 		// solve feedback loop (linear)
@@ -402,13 +410,13 @@ private:
 		const InternalType y2 = (b*y3 - a*y4 - z[2]) * ainv;
 		const InternalType y1 = (b*y2 - a*y3 - z[1]) * ainv;
 
-		const auto two_a = a * 2;
+		const auto two_a = a * 2.0;
 
 		// update filter state
-		z[0] += 2 * two_a * (y0 - y1 + y2);
-		z[1] +=     two_a * (y1 - 2*y2 + y3);
-		z[2] +=     two_a * (y2 - 2*y3 + y4);
-		z[3] +=     two_a * (y3 - 2*y4);
+		z[0] += 2.0 * two_a * (y0 - y1 + y2);
+		z[1] +=     two_a * (y1 - 2.0*y2 + y3);
+		z[2] +=     two_a * (y2 - 2.0*y3 + y4);
+		z[3] +=     two_a * (y3 - 2.0*y4);
 		z[4] = bh*y4 + ah*y5;
 
 		InternalType result = A * y4;
@@ -423,17 +431,17 @@ private:
 		using namespace boost::simd;
 
 		InternalParameterType fc = max(ParameterType(10), newFreq) * sampleDur();
-		fc = min(fc, InternalType(0.25) );
-		a = Pi<InternalType>() * fc; // PI is Nyquist frequency
+		fc = min(fc, InternalParameterType(0.25) );
+		a = Pi<InternalParameterType>() * fc; // PI is Nyquist frequency
 		//		a = 2 * tan(0.5*a); // dewarping, not required with 2x oversampling
 
 		a_inv = fast_rec( a );
 
 		a2 = a*a;
-		b = 2*a + 1;
+		b = 2.0*a + 1.0;
 		b2 = b*b;
-		c = fast_rec ( 2*a2*a2 - 4*a2*b2 + b2*b2 );
-		g0 = 2*a2*a2*c;
+		c = fast_rec ( 2.0*a2*a2 - 4.0*a2*b2 + b2*b2 );
+		g0 = 2.0*a2*a2*c;
 		g = g0 * m_bh;
 	}
 
@@ -445,11 +453,11 @@ private:
 	static void feedbackHPF(InternalParameterType fc, InternalParameterType & ah, InternalParameterType & bh)
 	{
 		using namespace boost::simd;
-		const InternalType K = fc * M_PI;
+		const InternalParameterType K = fc * M_PI;
 
-		auto rec_k_2 = fast_rec( K + 2 );
-		ah = ( K - 2 ) * rec_k_2;
-		bh =         2 * rec_k_2;
+		const InternalParameterType rec_k_2 = fast_rec( K + 2.0 );
+		ah = ( K - 2.0 ) * rec_k_2;
+		bh =         2.0 * rec_k_2;
 	}
 
 	void set_q(InternalParameterType q_)
@@ -461,8 +469,8 @@ private:
 
 	static void update_kA(InternalParameterType q, InternalParameterType & k, InternalParameterType & A)
 	{
-		k = 20 * q;
-		A = 1 + 0.5*k; // resonance gain compensation
+		k = 20.0 * q;
+		A = 1.0 + 0.5*k; // resonance gain compensation
 	}
 
 	static InternalType saturate (InternalType sample)
@@ -477,10 +485,20 @@ private:
 	InternalParameterType m_ah, m_bh;
 };
 
+}
+
+typedef nova::DiodeLadderFilter<1, true> DiodeLadderFilter;
+//typedef nova::DiodeLadderFilter<4, true> DiodeLadderFilter4;
+//typedef nova::DiodeLadderFilter<4, false> DiodeLadderFilter4_4;
+
 DEFINE_XTORS(DiodeLadderFilter)
+//DEFINE_XTORS(DiodeLadderFilter4)
+//DEFINE_XTORS(DiodeLadderFilter4_4)
 
 PluginLoad(NovaFilters)
 {
 	ft = inTable;
 	DefineSimpleUnit(DiodeLadderFilter);
+//	DefineSimpleUnit(DiodeLadderFilter4);
+//	DefineSimpleUnit(DiodeLadderFilter4_4);
 }

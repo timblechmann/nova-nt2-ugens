@@ -13,7 +13,7 @@ ParabolSaturation : HyperbolSaturation {
 PowSaturation : HyperbolSaturation {
 }
 
-LeakDC2 : MultiOutUGen {
+NovaLeakDC2 : MultiOutUGen {
 	*ar { arg left, right, cutoff;
 		^this.multiNew( 'audio', left, right, cutoff )
 	}
@@ -31,7 +31,7 @@ LeakDC2 : MultiOutUGen {
 	checkInputs { ^this.checkNInputs(2) }
 }
 
-LeakDC4 : MultiOutUGen {
+NovaLeakDC4 : MultiOutUGen {
 	*ar { arg s0, s1, s2, s3, cutoff;
 		^this.multiNew( 'audio', s0, s1, s2, s3, cutoff )
 	}
@@ -49,7 +49,7 @@ LeakDC4 : MultiOutUGen {
 	checkInputs { ^this.checkNInputs(4) }
 }
 
-LeakDC8 : MultiOutUGen {
+NovaLeakDC8 : MultiOutUGen {
 	*ar { arg s0, s1, s2, s3, s4, s5, s6, s7, cutoff;
 		^this.multiNew( 'audio', s0, s1, s2, s3, s4, s5, s6, s7, cutoff )
 	}
@@ -301,4 +301,26 @@ NovaPanB2D : MultiOutUGen {
     }
 
     checkInputs { ^this.checkNInputs(1) }
+}
+
+
+DiodeLadderFilter : Filter {
+    *ar { arg sig, freq = 440, q = 0.2, feedbackHPF = 1000;
+        ^this.multiNew('audio', sig, freq, q, feedbackHPF)
+    }
+}
+
+DiodeLadderFilter4 : Filter {
+    *ar { arg sig0, sig1, sig2, sig3, freq = 440, q = 0.2, feedbackHPF = 1000;
+        ^this.multiNew('audio', sig0, sig1, sig2, sig3, freq, q, feedbackHPF)
+    }
+}
+
+DiodeLadderFilter4_4 : Filter {
+    *ar { arg sig0, sig1, sig2, sig3, freq0 = 440, freq1 = 440, freq2 = 440, freq3 = 440,
+        q0 = 0.2, q1 = 0.2, q2 = 0.2, q3 = 0.2,
+        feedbackHPF0 = 1000, feedbackHPF1 = 1000, feedbackHPF2 = 1000, feedbackHPF3 = 1000;
+        ^this.multiNew('audio', sig0, sig1, sig2, sig3, freq0, freq1, freq2, freq3,
+            q0, q1, q2, q3, feedbackHPF0, feedbackHPF1, feedbackHPF2, feedbackHPF3)
+    }
 }
