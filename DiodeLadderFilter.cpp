@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <tuple>
 
 #include "dsp/utils.hpp"
 
@@ -73,10 +74,9 @@ struct QParameter<scalar, InternalType>
 		k_(k), A_(A)
 	{}
 
-	void getParameters(InternalType & k, InternalType & A)
+	auto getParameters()
 	{
-		k = k_;
-		A = A_;
+		return std::make_tuple( k_, A_ );
 	}
 
 	InternalType k_, A_;
@@ -89,12 +89,12 @@ struct QParameter<slope, InternalType>
 		k_(k), kSlope_(kSlope), A_(A), ASlope_(ASlope)
 	{}
 
-	void getParameters(InternalType & k, InternalType & A)
+	auto getParameters()
 	{
-		k = k_;
-		A = A_;
+		auto ret = std::make_tuple( k_, A_ );
 		k_ += kSlope_;
 		A_ += ASlope_;
+		return ret;
 	}
 
 	InternalType k_, A_;
@@ -114,10 +114,9 @@ struct HPFParameter<scalar, InternalType>
 		a_(a), b_(b)
 	{}
 
-	void getParameters(InternalType & a, InternalType & b)
+	auto getParameters()
 	{
-		a = a_;
-		b = b_;
+		return std::make_tuple( a_, b_ );
 	}
 
 	InternalType a_, b_;
@@ -130,12 +129,12 @@ struct HPFParameter<slope, InternalType>
 		a_(a), b_(b), aSlope(aSlope), bSlope(bSlope)
 	{}
 
-	void getParameters(InternalType & a, InternalType & b)
+	auto getParameters()
 	{
-		a = a_;
-		b = b_;
+		auto ret = std::make_tuple( a_, b_ );
 		a_ += aSlope;
 		b_ += bSlope;
+		return ret;
 	}
 
 	InternalType a_, b_;
@@ -388,10 +387,10 @@ private:
 		using namespace boost::simd;
 
 		InternalParameterType k, A;
-		qParameter.getParameters(k, A);
+		std::tie(k, A) = qParameter.getParameters();
 
 		InternalParameterType ah, bh;
-		hpfParam.getParameters(ah, bh);
+		std::tie(ah, bh) = hpfParam.getParameters();
 
 		// current state
 		const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - 2.0*a2) * a + z[3] * (b2 - 3.0 * a2) * b ) * c;
