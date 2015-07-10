@@ -159,7 +159,7 @@ struct DiodeLadderFilter:
 	typedef nova::InputInterleaver<parameterInputSize> ParameterReader;
 
 
-	static const size_t freqInputIndex = numberOfChannels + 1;
+	static const size_t freqInputIndex = numberOfChannels;
 	static const size_t qInputIndex    = freqInputIndex   + parameterInputSize;
 	static const size_t hpfInputIndex  = qInputIndex      + parameterInputSize;
 
