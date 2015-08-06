@@ -1,19 +1,19 @@
 /*
-	Copyright (C) 2013 Tim Blechmann
+    Copyright (C) 2013 Tim Blechmann
 
-	This program is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2 of the License, or
-	(at your option) any later version.
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with this program; if not, write to the Free Software
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #include "SC_PlugIn.hpp"
@@ -45,178 +45,178 @@ InterfaceTable *ft;
 
 template <typename Parent>
 struct SaturationBase:
-	public SCUnit
+        public SCUnit
 {
-	static float verifyLevel ( float arg ) { return arg; }
+    static float verifyLevel ( float arg ) { return arg; }
 
-	SaturationBase()
-	{
-		switch (inRate(1)) {
-		case calc_FullRate:
-			if (boost::simd::is_aligned( bufferSize(), 8 ) )
-				set_calc_function<SaturationBase, &SaturationBase::run_a< boost::simd::pack<float, 8> > >();
-			else
-				set_calc_function<SaturationBase, &SaturationBase::run_a<float>>();
-			break;
+    SaturationBase()
+    {
+        switch (inRate(1)) {
+        case calc_FullRate:
+            if (boost::simd::is_aligned( bufferSize(), 8 ) )
+                set_calc_function<SaturationBase, &SaturationBase::run_a< boost::simd::pack<float, 8> > >();
+            else
+                set_calc_function<SaturationBase, &SaturationBase::run_a<float>>();
+            break;
 
-		case calc_BufRate:
-			_level = Parent::verifyLevel( in0(1) );
-			if (boost::simd::is_aligned( bufferSize(), 8 ) )
-				set_calc_function<SaturationBase, &SaturationBase::run_k< boost::simd::pack<float, 8> > >();
-			else
-				set_calc_function<SaturationBase, &SaturationBase::run_k<float>>();
-			break;
+        case calc_BufRate:
+            _level = Parent::verifyLevel( in0(1) );
+            if (boost::simd::is_aligned( bufferSize(), 8 ) )
+                set_calc_function<SaturationBase, &SaturationBase::run_k< boost::simd::pack<float, 8> > >();
+            else
+                set_calc_function<SaturationBase, &SaturationBase::run_k<float>>();
+            break;
 
-		case calc_ScalarRate:
-		default:
-			_level = Parent::verifyLevel( in0(1) );
-			if (boost::simd::is_aligned( bufferSize(), 8 ) )
-				set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 8> > >();
-			else
-				set_calc_function<SaturationBase, &SaturationBase::run_i<float>>();
-		}
+        case calc_ScalarRate:
+        default:
+            _level = Parent::verifyLevel( in0(1) );
+            if (boost::simd::is_aligned( bufferSize(), 8 ) )
+                set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 8> > >();
+            else
+                set_calc_function<SaturationBase, &SaturationBase::run_i<float>>();
+        }
 
-	}
+    }
 
-	template <typename Functor>
-	inline void loop (int loops, Functor const & f)
-	{
-		for (int i = 0; i != loops; ++i)
-			f();
-	}
+    template <typename Functor>
+    inline void loop (int loops, Functor const & f)
+    {
+#ifdef __GCC__
+        _Pragma( GCC ivdep )
+#endif
+        for (int i = 0; i != loops; ++i)
+            f();
+    }
 
-	template <typename SampleType,
-			  typename Input0,
-			  typename Input1,
-			  typename Output0>
-	inline void perform(int inNumSamples, Input0 & input0, Input1 & input1, Output0 & output)
-	{
-		using namespace boost::simd;
+    template <typename SampleType,
+              typename Input0,
+              typename Input1,
+              typename Output0>
+    inline void perform(int inNumSamples, Input0 & input0, Input1 & input1, Output0 & output)
+    {
+        using namespace boost::simd;
 
-		const size_t unroll = meta::cardinal_of<SampleType>::value;
-		loop( inNumSamples / unroll, [&] {
-			auto in0 = input0();
-			auto in1 = input1();
-			auto result = Parent::doDistort( in0, in1 );
-			output(result);
-		});
-	}
+        const size_t unroll = meta::cardinal_of<SampleType>::value;
+        loop( inNumSamples / unroll, [&] {
+            auto in0 = input0();
+            auto in1 = input1();
+            auto result = Parent::doDistort( in0, in1 );
+            output(result);
+        });
+    }
 
 
-	template <typename SampleType>
-	void run_a (int inNumSamples)
-	{
-		auto input0 = nova::Packer<SampleType, 0>(this);
-		auto input1 = nova::Packer<SampleType, 1>(this);
-		auto output = nova::Unpacker<SampleType, 0>(this);
+    template <typename SampleType>
+    void run_a (int inNumSamples)
+    {
+        auto input0 = nova::Packer<SampleType, 0>(this);
+        auto input1 = nova::Packer<SampleType, 1>(this);
+        auto output = nova::Unpacker<SampleType, 0>(this);
 
-		perform<SampleType>( inNumSamples, input0, input1, output );
-	}
+        perform<SampleType>( inNumSamples, input0, input1, output );
+    }
 
-	template <typename SampleType>
-	void run_k (int inNumSamples)
-	{
-		float newLevel = Parent::verifyLevel( in0(1) );
-		if (newLevel != _level) {
-			float slope = calcSlope(newLevel, _level);
+    template <typename SampleType>
+    void run_k (int inNumSamples)
+    {
+        float newLevel = Parent::verifyLevel( in0(1) );
+        if (newLevel != _level) {
+            float slope = calcSlope(newLevel, _level);
 
-			auto input0 = nova::Packer<SampleType, 0>(this);
-			auto input1 = nova::makeRamp<SampleType>(_level, slope);
-			auto output = nova::Unpacker<SampleType, 0>(this);
-			_level = newLevel;
+            auto input0 = nova::Packer<SampleType, 0>(this);
+            auto input1 = nova::makeRamp<SampleType>(_level, slope);
+            auto output = nova::Unpacker<SampleType, 0>(this);
+            _level = newLevel;
 
-			perform<SampleType>( inNumSamples, input0, input1, output );
-		} else {
-			auto input0 = nova::Packer<SampleType, 0>(this);
-			auto input1 = nova::Scalar<SampleType>(_level);
-			auto output = nova::Unpacker<SampleType, 0>(this);
+            perform<SampleType>( inNumSamples, input0, input1, output );
+        } else {
+            auto input0 = nova::Packer<SampleType, 0>(this);
+            auto input1 = nova::Scalar<SampleType>(_level);
+            auto output = nova::Unpacker<SampleType, 0>(this);
 
-			perform<SampleType>( inNumSamples, input0, input1, output );
-		}
-	}
+            perform<SampleType>( inNumSamples, input0, input1, output );
+        }
+    }
 
-	template <typename SampleType>
-	void run_i (int inNumSamples)
-	{
-		auto input0 = nova::Packer<SampleType, 0>(this);
-		auto input1 = nova::Scalar<SampleType>(_level);
-		auto output = nova::Unpacker<SampleType, 0>(this);
+    template <typename SampleType>
+    void run_i (int inNumSamples)
+    {
+        auto input0 = nova::Packer<SampleType, 0>(this);
+        auto input1 = nova::Scalar<SampleType>(_level);
+        auto output = nova::Unpacker<SampleType, 0>(this);
 
-		perform<SampleType>( inNumSamples, input0, input1, output );
-	}
+        perform<SampleType>( inNumSamples, input0, input1, output );
+    }
 
-	float _level;
+    float _level;
 };
 
 class HyperbolSaturation : public SaturationBase<HyperbolSaturation>
 {
 public:
-	HyperbolSaturation()
-	{}
+    HyperbolSaturation() = default;
 
-	template <typename SampleType>
-	static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
-	{
-		using namespace boost::simd;
+    template <typename SampleType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
+    {
+        using namespace boost::simd;
 
-		auto saturated = level - (level * level * fast_rec( level + abs(sig) ) );
+        auto saturated = level - (level * level * fast_rec( level + abs(sig) ) );
 
-		return copysign(saturated, sig);
-	}
+        return copysign(saturated, sig);
+    }
 
-	static float verifyLevel(float arg)
-	{
-		return std::max( arg, 1e-10f );
-	}
+    static float verifyLevel(float arg)
+    {
+        return std::max( arg, 1e-10f );
+    }
 };
 
 class ParabolSaturation : public SaturationBase<ParabolSaturation>
 {
 public:
-	ParabolSaturation()
-	{}
+    ParabolSaturation() = default;
 
-	template <typename SampleType>
-	static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
-	{
-		using namespace boost::simd;
+    template <typename SampleType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
+    {
+        using namespace boost::simd;
 
-		auto limit = Two<SampleType>() * level;
-		auto clippedSignal = nova::clip2<SampleType>(sig, limit);
+        auto limit = Two<SampleType>() * level;
+        auto clippedSignal = nova::clip2<SampleType>(sig, limit);
 
-		auto factor = One<SampleType>() - ( abs(clippedSignal) * Quarter<SampleType>() * fast_rec(level));
+        auto factor = One<SampleType>() - ( abs(clippedSignal) * Quarter<SampleType>() * fast_rec(level));
 
-		return sig * factor;
-	}
+        return sig * factor;
+    }
 
-	static float verifyLevel(float arg)
-	{
-		return std::max( arg, 1e-10f );
-	}
+    static float verifyLevel(float arg)
+    {
+        return std::max( arg, 1e-10f );
+    }
 };
 
 
 class PowSaturation : public SaturationBase<PowSaturation>
 {
 public:
-	PowSaturation()
-	{}
+    PowSaturation() = default;
 
-	template <typename SampleType>
-	static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
-	{
-		using namespace boost::simd;
+    template <typename SampleType>
+    static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
+    {
+        using namespace boost::simd;
 
-//		auto pow = nt2::pow(abs(sig), level);
-//		auto ret = boost::simd::copysign(pow, sig);
-//		return pow;
-		return boost::simd::copysign(nt2::pow_abs(sig, level), sig);
-	}
+        //		auto pow = nt2::pow(abs(sig), level);
+        //		auto ret = boost::simd::copysign(pow, sig);
+        //		return pow;
+        return boost::simd::copysign(nt2::pow_abs(sig, level), sig);
+    }
 
-	static float verifyLevel(float arg)
-	{
-		return std::max( arg, 1e-10f );
-	}
+    static float verifyLevel(float arg)
+    {
+        return std::max( arg, 1e-10f );
+    }
 };
 
 
@@ -229,9 +229,8 @@ DEFINE_XTORS(PowSaturation)
 
 PluginLoad(NovaSaturators)
 {
-	ft = inTable;
-	DefineDtorUnit(HyperbolSaturation);
-	DefineDtorUnit(ParabolSaturation);
-	DefineDtorUnit(PowSaturation);
+    ft = inTable;
+    DefineDtorUnit(HyperbolSaturation);
+    DefineDtorUnit(ParabolSaturation);
+    DefineDtorUnit(PowSaturation);
 }
-
