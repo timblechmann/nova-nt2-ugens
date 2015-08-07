@@ -31,6 +31,11 @@
 #include "boost/simd/include/functions/insert.hpp"
 #include "boost/simd/include/functions/split.hpp"
 
+#include "boost/simd/operator/include/functions/plus.hpp"
+#include "boost/simd/operator/include/functions/multiplies.hpp"
+#include "boost/simd/include/functions/assign.hpp"
+
+
 #include "boost/simd/sdk/meta/cardinal_of.hpp"
 
 namespace nova {
