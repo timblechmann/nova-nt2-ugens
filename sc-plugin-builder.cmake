@@ -20,18 +20,22 @@ target_include_directories(ScPluginInterface INTERFACE
   ${SC_PATH}/external_libraries/nova-tt
   ${SC_PATH}/external_libraries/boost)
 
-target_compile_options(ScPluginInterface  INTERFACE  -ffast-math -fno-finite-math-only)
+target_compile_options(ScPluginInterface  INTERFACE  -ffast-math -fno-finite-math-only -ftemplate-backtrace-limit=0)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   if(APPLE)
     target_compile_options(ScPluginInterface INTERFACE -Wa,-q) # workaround for homebrew's gcc
   endif()
-
-  target_compile_options(ScPluginInterface INTERFACE -std=c++1y)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
-  target_compile_options(ScPluginInterface INTERFACE -stdlib=libc++ -std=c++1y)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|AppleClang|Clang")
+
+  option( NATIVE "native build" ON )
+
+  if( NATIVE )
+    target_compile_options( ScPluginInterface INTERFACE -march=native )
+  endif()
 endif()
 
 
@@ -48,6 +52,7 @@ function(add_scplugin Name)
 
   set_target_properties(${Name} ${Name}_supernova PROPERTIES
     PREFIX ""
+    CXX_STANDARD 14
     VISIBILITY_INLINES_HIDDEN ON)
 
   if(APPLE)
@@ -64,6 +69,8 @@ function(add_scplugin Name)
             DESTINATION "lib/SuperCollider/plugins/")
   endif()
 endfunction()
+
+
 
 #############
 # add_scclass
