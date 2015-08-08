@@ -21,6 +21,8 @@ target_include_directories(ScPluginInterface INTERFACE
   ${SC_PATH}/external_libraries/boost)
 
 target_compile_options(ScPluginInterface  INTERFACE  -ffast-math -fno-finite-math-only -ftemplate-backtrace-limit=0)
+target_compile_definitions(ScPluginInterface INTERFACE BOOST_NO_AUTO_PTR)
+
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   if(APPLE)
@@ -55,10 +57,13 @@ function(add_scplugin Name)
     CXX_STANDARD 14
     VISIBILITY_INLINES_HIDDEN ON)
 
-  if(APPLE)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang|Clang")
     set_target_properties(${Name} ${Name}_supernova PROPERTIES
-      LINKER_FLAGS -stdlib=libc++
-      SUFFIX ".scx")
+      LINKER_FLAGS -stdlib=libc++ )
+  endif()
+
+  if(APPLE)
+    set_target_properties(${Name} ${Name}_supernova PROPERTIES SUFFIX ".scx")
   endif()
 
   if(APPLE)

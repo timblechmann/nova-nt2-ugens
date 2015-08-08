@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2013 Tim Blechmann
+    Copyright (C) Tim Blechmann
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ InterfaceTable *ft;
 
 template <typename Parent>
 struct SaturationBase:
-        public SCUnit
+    public SCUnit
 {
     static float verifyLevel ( float arg ) { return arg; }
 
