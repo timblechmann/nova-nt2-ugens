@@ -52,8 +52,8 @@ template <int NumberOfChannels>
 struct NovaLeakDC:
     public SCUnit
 {
-    typedef boost::simd::pack<double, NumberOfChannels> vDouble;
-    typedef nova::LeakDC<vDouble, double> Filter;
+    typedef typename nova::as_pack< double, NumberOfChannels >::type vDouble;
+    typedef nova::LeakDC< vDouble, double > Filter;
 
     static const size_t IndexOfCoefficient = NumberOfChannels;
 
@@ -123,6 +123,7 @@ struct NovaLeakDC:
     float _freq;
 };
 
+typedef NovaLeakDC<1> NovaLeakDC1;
 typedef NovaLeakDC<2> NovaLeakDC2;
 typedef NovaLeakDC<4> NovaLeakDC4;
 typedef NovaLeakDC<8> NovaLeakDC8;
@@ -144,13 +145,12 @@ struct NovaIntegrator:
 		Filter
 	{
 		template <typename T>
-		void setParameter( T const & t) { Filter::_a = t; }
+		void setParameter( T const & t ) { Filter::_a = t; }
 
 		auto getParameter() { return Filter::_a; }
 	};
 
-    NovaIntegrator()
-    {}
+    NovaIntegrator() = default;
 
 	template <typename AType>
 	static auto checkParameter(AType const & a)
@@ -169,7 +169,7 @@ struct NovaIntegrator:
 }
 }
 
-typedef nova::NovaIntegrator<1> NovaIntegrator;
+typedef nova::NovaIntegrator<1> NovaIntegrator1;
 typedef nova::NovaIntegrator<2> NovaIntegrator2;
 typedef nova::NovaIntegrator<4> NovaIntegrator4;
 typedef nova::NovaIntegrator<8> NovaIntegrator8;
@@ -760,10 +760,12 @@ struct NovaAllPass2_4th:
 
 
 
+DEFINE_XTORS(NovaLeakDC1)
 DEFINE_XTORS(NovaLeakDC2)
 DEFINE_XTORS(NovaLeakDC4)
 DEFINE_XTORS(NovaLeakDC8)
 
+DEFINE_XTORS(NovaIntegrator1)
 DEFINE_XTORS(NovaIntegrator2)
 DEFINE_XTORS(NovaIntegrator4)
 DEFINE_XTORS(NovaIntegrator8)
@@ -772,10 +774,12 @@ DEFINE_XTORS(NovaIntegrator8)
 PluginLoad(NovaFilters)
 {
     ft = inTable;
+    DefineSimpleUnit(NovaLeakDC1);
     DefineSimpleUnit(NovaLeakDC2);
     DefineSimpleUnit(NovaLeakDC4);
     DefineSimpleUnit(NovaLeakDC8);
 
+    DefineSimpleUnit(NovaIntegrator1);
     DefineSimpleUnit(NovaIntegrator2);
     DefineSimpleUnit(NovaIntegrator4);
     DefineSimpleUnit(NovaIntegrator8);

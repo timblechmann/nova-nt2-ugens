@@ -1,4 +1,4 @@
-HyperbolSaturation : UGen {
+HyperbolSaturation : PureUGen {
 	*ar { |sig level|
 		^this.multiNew( 'audio', sig, level )
 	}
@@ -13,6 +13,18 @@ ParabolSaturation : HyperbolSaturation {
 PowSaturation : HyperbolSaturation {
 }
 
+NovaLeakDC1 : PureUGen {
+	*ar { arg sig, cutoff;
+		^this.multiNew( 'audio', sig, cutoff )
+	}
+
+	*kr { arg sig, cutoff;
+		^this.multiNew( 'control', sig, cutoff )
+	}
+
+	checkInputs { ^this.checkNInputs(1) }
+}
+
 NovaLeakDC2 : MultiOutUGen {
 	*ar { arg left, right, cutoff;
 		^this.multiNew( 'audio', left, right, cutoff )
@@ -24,7 +36,7 @@ NovaLeakDC2 : MultiOutUGen {
 
 	init { arg ... theInputs;
 		inputs = theInputs;
-		channels = (0..2).collect( OutputProxy(rate, this, _) );
+		channels = (0..1).collect( OutputProxy(rate, this, _) );
 		^channels
 	}
 
