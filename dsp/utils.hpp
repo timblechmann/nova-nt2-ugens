@@ -19,8 +19,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
 
-#include <boost/mpl/if.hpp>
-
 #include "boost/simd/include/pack.hpp"
 #include "boost/simd/include/functions/max.hpp"
 #include "boost/simd/include/functions/min.hpp"
@@ -46,36 +44,35 @@ inline auto clip2 ( SampleType0 x, SampleType1 hi)
 template <typename ScalarType, size_t Size>
 struct as_pack
 {
-	typedef typename boost::mpl::if_c< Size == 1u,
-									   ScalarType,
-									   boost::simd::pack<ScalarType, Size>
-									 >::type type;
+    typedef boost::simd::pack<ScalarType, Size>  type;
 };
 
-
+template <typename ScalarType>
+struct as_pack< ScalarType, 1 >
+{
+    typedef ScalarType type;
+};
 
 
 template <typename ReturnType, typename ArgumentType>
 BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
 {
-	using namespace boost::simd;
-	ReturnType ret;
+    using namespace boost::simd;
 
-	const size_t size = meta::cardinal_of<ReturnType>::value;
-	typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
+    const size_t size = meta::cardinal_of<ReturnType>::value;
 
-	typedef typename boost::mpl::if_c<size == 1, ArgScalar, pack<ArgScalar, size>>::type EvaluatedArgType;
+    typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
+    typedef typename as_pack< ArgScalar, size >::type EvaluatedArgType;
 
-	const EvaluatedArgType evaluatedArg = arg;
+    const EvaluatedArgType evaluatedArg = arg;
+    ReturnType ret;
+    for (size_t i = 0; i != size; ++i) {
+        auto scalar = extract(evaluatedArg, i);
+        insert(scalar, ret, i);
+    }
 
-	for (size_t i = 0; i != size; ++i) {
-		auto scalar = extract(evaluatedArg, i);
-		insert(scalar, ret, i);
-	}
-
-	return ret;
+    return ret;
 }
-
 
 }
 

@@ -16,6 +16,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+
 #include "SC_PlugIn.hpp"
 
 #include "boost/simd/include/pack.hpp"
@@ -28,8 +29,6 @@
 #include "boost/simd/include/constants/two.hpp"
 #include "boost/simd/include/constants/quarter.hpp"
 
-#include "producer_consumer_functors.hpp"
-
 #include "boost/simd/arithmetic/include/functions/abs.hpp"
 #include "boost/simd/arithmetic/include/functions/fast_rec.hpp"
 #include "boost/simd/ieee/include/functions/copysign.hpp"
@@ -37,7 +36,10 @@
 #include <nt2/include/functions/pow.hpp>
 #include <nt2/include/functions/pow_abs.hpp>
 
+#include "producer_consumer_functors.hpp"
+
 #include "dsp/utils.hpp"
+
 
 namespace {
 

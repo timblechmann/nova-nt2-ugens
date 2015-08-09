@@ -44,8 +44,7 @@ struct NovaFeedbackAM:
 		auto getParameter() { return Filter::_fb; }
 	};
 
-	NovaFeedbackAM()
-	{}
+	NovaFeedbackAM() = default;
 
 	template <typename AType>
 	static auto checkParameter(AType const & a)

@@ -23,7 +23,6 @@
 
 #include "dsp/utils.hpp"
 
-#include "boost/simd/include/pack.hpp"
 #include "boost/simd/include/functions/aligned_load.hpp"
 #include "boost/simd/include/functions/aligned_store.hpp"
 #include "boost/simd/include/functions/extract.hpp"
@@ -42,8 +41,7 @@ namespace nova {
 
 template <int N>
 struct packGenerator
-{
-};
+{};
 
 template <>
 struct packGenerator<1>
@@ -110,7 +108,7 @@ struct Interleaver
 	static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
 
 	Interleaver(SCUnit * unit):
-		unit(unit), cnt(0)
+		unit(unit)
 	{}
 
 	BOOST_FORCEINLINE OutputType operator() ()
@@ -129,7 +127,7 @@ struct Interleaver
 	}
 
 	SCUnit * unit;
-	size_t cnt;
+	size_t cnt = 0;
 };
 
 template <typename OutputType>
@@ -138,7 +136,7 @@ struct Deinterleaver
 	static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
 
 	Deinterleaver(SCUnit * unit):
-		unit(unit), cnt(0)
+		unit(unit)
 	{}
 
 	BOOST_FORCEINLINE void operator() (OutputType arg)
@@ -151,14 +149,14 @@ struct Deinterleaver
 	}
 
 	SCUnit * unit;
-	size_t cnt;
+	size_t cnt = 0;
 };
 
 template <typename OutputType, int Channel>
 struct Packer
 {
 	Packer(SCUnit * unit):
-		ptr(unit->in(Channel)), cnt(0)
+		ptr(unit->in(Channel))
 	{}
 
 	inline OutputType operator() ()
@@ -169,14 +167,14 @@ struct Packer
 	}
 
 	const float * ptr;
-	size_t cnt;
+	size_t cnt = 0;
 };
 
 template <typename OutputType, int Channel>
 struct Unpacker
 {
 	Unpacker(SCUnit * unit):
-		ptr(unit->out(Channel)), cnt(0)
+		ptr(unit->out(Channel))
 	{}
 
 	inline void operator() (OutputType arg)
@@ -186,7 +184,7 @@ struct Unpacker
 	}
 
 	float * ptr;
-	size_t cnt;
+	size_t cnt = 0;
 };
 
 
