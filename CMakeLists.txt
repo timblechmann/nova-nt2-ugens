@@ -16,7 +16,19 @@ set(sources
   DiodeLadderFilter
 )
 
-include_directories(nt2/build/include)
+#########
+# nt2
+
+include(ExternalProject)
+
+ExternalProject_Add( NT2
+  SOURCE_DIR         ${CMAKE_CURRENT_SOURCE_DIR}/nt2
+  BINARY_DIR         ${CMAKE_CURRENT_BINARY_DIR}/nt2/build
+  CONFIGURE_COMMAND  cmake -DNT2_VERSION_STRING="git" ${CMAKE_CURRENT_SOURCE_DIR}/nt2
+  BUILD_COMMAND      cmake --build ${CMAKE_CURRENT_BINARY_DIR}/nt2/build --target stage
+  INSTALL_COMMAND    ""
+)
+
 add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
 
 add_scplugin(NovaAmbisonicUGens NovaAmbisonicUGens.cpp ${headers} ${headers_2})
@@ -24,5 +36,12 @@ add_scplugin(NovaMultiFilters   NovaMultiFilters.cpp)
 add_scplugin(NovaSaturator      NovaSaturator.cpp)
 add_scplugin(NovaFeedbackAM     NovaFeedbackAM.cpp)
 add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
+
+foreach( plugin NovaAmbisonicUGens NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter )
+  add_dependencies( ${plugin}           NT2)
+  add_dependencies( ${plugin}_supernova NT2)
+  target_include_directories( ${plugin}           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/nt2/build/include)
+  target_include_directories( ${plugin}_supernova PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/nt2/build/include)
+endforeach()
 
 add_scclass(NovaNT2UGens sc/NovaNT2UGens.sc)
