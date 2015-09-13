@@ -395,7 +395,11 @@ private:
         auto two = boost::simd::Two<InternalParameterType>();
 
         // current state
+#if 0
         const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - two*a2) * a + z[3] * (b2 - 3.0 * a2) * b ) * c;
+#else
+        const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - (a2+a2)) * a + z[3] * (b2 - 3.0 * a2) * b ) * c;
+#endif
         const InternalType s = bh * s0 - z[4];
 
         // solve feedback loop (linear)
@@ -411,6 +415,7 @@ private:
         const InternalType y2 = (b*y3 - a*y4 - z[2]) * ainv;
         const InternalType y1 = (b*y2 - a*y3 - z[1]) * ainv;
 
+#if 0
         const auto two_a = a * two;
 
         // update filter state
@@ -419,6 +424,18 @@ private:
         z[2] +=       two_a * (y2 - two*y3 + y4);
         z[3] +=       two_a * (y3 - two*y4);
         z[4] = bh*y4 + ah*y5;
+
+#else
+
+        const auto two_a = a + a;
+
+        // update filter state
+        z[0] += two * two_a * (y0 -     y1  + y2);
+        z[1] +=       two_a * (y1 - (y2+y2) + y3);
+        z[2] +=       two_a * (y2 - (y3+y3) + y4);
+        z[3] +=       two_a * (y3 - (y4+y4)     );
+        z[4] = bh*y4 + ah*y5;
+#endif
 
         InternalType result = A * y4;
 
