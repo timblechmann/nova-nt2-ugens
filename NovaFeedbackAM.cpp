@@ -35,6 +35,9 @@ struct NovaFeedbackAM:
 
 	typedef nova::FeedbackAM<typename Base::SampleType, typename Base::ParameterDSPType> Filter;
 
+    NovaFeedbackAM()
+    {}
+
 	struct DSPEngine:
 		Filter
 	{
@@ -44,9 +47,7 @@ struct NovaFeedbackAM:
 		auto getParameter() { return Filter::_fb; }
 	};
 
-	NovaFeedbackAM() = default;
-
-	template <typename AType>
+    template <typename AType>
 	static auto checkParameter(AType const & a)
 	{
 		return Filter::checkParameter(a);
@@ -63,14 +64,14 @@ struct NovaFeedbackAM:
 }
 }
 
-typedef nova::NovaFeedbackAM<1> NovaFeedbackAM;
-typedef nova::NovaFeedbackAM<2> NovaFeedbackAM2;
-typedef nova::NovaFeedbackAM<4> NovaFeedbackAM4;
-typedef nova::NovaFeedbackAM<8> NovaFeedbackAM8;
+typedef nova::NovaFeedbackAM<1, true> NovaFeedbackAM;
+typedef nova::NovaFeedbackAM<2, true> NovaFeedbackAM2;
+typedef nova::NovaFeedbackAM<4, true> NovaFeedbackAM4;
+typedef nova::NovaFeedbackAM<8, true> NovaFeedbackAM8;
 
-typedef nova::NovaFeedbackAM<2, true> NovaFeedbackAM2_2;
-typedef nova::NovaFeedbackAM<4, true> NovaFeedbackAM4_4;
-typedef nova::NovaFeedbackAM<8, true> NovaFeedbackAM8_8;
+typedef nova::NovaFeedbackAM<2> NovaFeedbackAM2_2;
+typedef nova::NovaFeedbackAM<4> NovaFeedbackAM4_4;
+typedef nova::NovaFeedbackAM<8> NovaFeedbackAM8_8;
 
 DEFINE_XTORS(NovaFeedbackAM)
 DEFINE_XTORS(NovaFeedbackAM2)

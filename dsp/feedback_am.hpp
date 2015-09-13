@@ -102,7 +102,7 @@ struct FeedbackAM
     template <typename Arg>
     static auto checkParameter( Arg fb )
     {
-        return clip( fb, boost::simd::Zero<Arg>(), Arg(1.9f) );
+        return clip( fb, Arg(-2.1f), Arg(2.1f) );
     }
 
     static inline SampleType tick( SampleType input, SampleType & y_1, ParameterType fb )

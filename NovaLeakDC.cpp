@@ -33,6 +33,8 @@ using nova::NovaUnit;
 
 InterfaceTable *ft;
 
+namespace nova {
+
 namespace constants = boost::math::constants;
 
 template <int NumberOfChannels>
@@ -110,15 +112,17 @@ struct NovaLeakDC:
     float _freq;
 };
 
-typedef NovaLeakDC<1> NovaLeakDC1;
-typedef NovaLeakDC<2> NovaLeakDC2;
-typedef NovaLeakDC<4> NovaLeakDC4;
-typedef NovaLeakDC<8> NovaLeakDC8;
+}
+
+typedef nova::NovaLeakDC<1> NovaLeakDC;
+typedef nova::NovaLeakDC<2> NovaLeakDC2;
+typedef nova::NovaLeakDC<4> NovaLeakDC4;
+typedef nova::NovaLeakDC<8> NovaLeakDC8;
 
 
 
 
-DEFINE_XTORS(NovaLeakDC1)
+DEFINE_XTORS(NovaLeakDC )
 DEFINE_XTORS(NovaLeakDC2)
 DEFINE_XTORS(NovaLeakDC4)
 DEFINE_XTORS(NovaLeakDC8)
@@ -127,7 +131,7 @@ DEFINE_XTORS(NovaLeakDC8)
 PluginLoad(NovaLeakDC)
 {
     ft = inTable;
-    DefineSimpleUnit(NovaLeakDC1);
+	DefineSimpleUnit(NovaLeakDC );
     DefineSimpleUnit(NovaLeakDC2);
     DefineSimpleUnit(NovaLeakDC4);
     DefineSimpleUnit(NovaLeakDC8);
