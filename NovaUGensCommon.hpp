@@ -25,136 +25,136 @@
 namespace nova {
 
 struct NovaUnit:
-	public SCUnit
+    public SCUnit
 {
 #if 0
-	template <typename FloatType, typename Functor>
-	struct ScalarSignal
-	{
-		ScalarSignal(FloatType value, Functor const & f):
-			value(f(value))
-		{}
+    template <typename FloatType, typename Functor>
+    struct ScalarSignal
+    {
+        ScalarSignal(FloatType value, Functor const & f):
+            value(f(value))
+        {}
 
-		FloatType consume() const
-		{
-			return value;
-		}
+        FloatType consume() const
+        {
+            return value;
+        }
 
-		FloatType value;
-	};
+        FloatType value;
+    };
 
-	template <typename FloatType, typename Functor>
-	struct SlopeSignal:
-		Functor
-	{
-		SlopeSignal(FloatType value, FloatType slope, Functor const & f):
-			Functor(f), value(value), slope(slope)
-		{}
+    template <typename FloatType, typename Functor>
+    struct SlopeSignal:
+            Functor
+    {
+        SlopeSignal(FloatType value, FloatType slope, Functor const & f):
+            Functor(f), value(value), slope(slope)
+        {}
 
-		FloatType consume()
-		{
-			FloatType ret = value;
-			value += slope;
-			return Functor::operator()(ret);
-		}
+        FloatType consume()
+        {
+            FloatType ret = value;
+            value += slope;
+            return Functor::operator()(ret);
+        }
 
-		FloatType value, slope;
-	};
+        FloatType value, slope;
+    };
 
-	template <typename FloatType, typename Functor>
-	struct AudioSignal:
-		Functor
-	{
-		AudioSignal(const FloatType * pointer, Functor const & f):
-			Functor(f), pointer(pointer)
-		{}
+    template <typename FloatType, typename Functor>
+    struct AudioSignal:
+            Functor
+    {
+        AudioSignal(const FloatType * pointer, Functor const & f):
+            Functor(f), pointer(pointer)
+        {}
 
-		FloatType consume()
-		{
-			return Functor::operator()(*pointer++);
-		}
+        FloatType consume()
+        {
+            return Functor::operator()(*pointer++);
+        }
 
-		const FloatType * pointer;
-	};
+        const FloatType * pointer;
+    };
 
-	template <typename FloatType, typename Functor>
-	inline auto makeScalar(FloatType value, Functor const & f) const
-	{
-		return ScalarSignal<FloatType, Functor>(value, f);
-	}
+    template <typename FloatType, typename Functor>
+    inline auto makeScalar(FloatType value, Functor const & f) const
+    {
+        return ScalarSignal<FloatType, Functor>(value, f);
+    }
 
-	template <typename FloatType>
-	inline auto makeScalar(FloatType value) const
-	{
-		return SCUnit::makeScalar(value);
-	}
+    template <typename FloatType>
+    inline auto makeScalar(FloatType value) const
+    {
+        return SCUnit::makeScalar(value);
+    }
 
-	template <typename FloatType, typename Functor>
-	inline auto makeSlope(FloatType next, FloatType last, Functor const & f) const
-	{
-		return SlopeSignal<FloatType, Functor>(last, calcSlope(next, last), f);
-	}
+    template <typename FloatType, typename Functor>
+    inline auto makeSlope(FloatType next, FloatType last, Functor const & f) const
+    {
+        return SlopeSignal<FloatType, Functor>(last, calcSlope(next, last), f);
+    }
 
-	template <typename FloatType>
-	inline auto makeSlope(FloatType next, FloatType last) const
-	{
-		return SCUnit::makeSlope(next, last);
-	}
+    template <typename FloatType>
+    inline auto makeSlope(FloatType next, FloatType last) const
+    {
+        return SCUnit::makeSlope(next, last);
+    }
 
-	template <size_t Size, typename Functor>
-	inline auto makeSignal(int index, Functor const & f) const
-	{
-		const float * input = in(index);
-		return AudioSignal<float, Functor>(input, f);
-	}
+    template <size_t Size, typename Functor>
+    inline auto makeSignal(int index, Functor const & f) const
+    {
+        const float * input = in(index);
+        return AudioSignal<float, Functor>(input, f);
+    }
 
-	template <typename Functor>
-	inline auto makeSignal(int index) const
-	{
-		return SCUnit::makeSignal(index);
-	}
+    template <typename Functor>
+    inline auto makeSignal(int index) const
+    {
+        return SCUnit::makeSignal(index);
+    }
 #endif
 
-	int inRate(size_t firstIndex, size_t lastIndex)
-	{
-		if (isScalarRate(firstIndex, lastIndex))
-			return calc_ScalarRate;
-		if (isBufRate(firstIndex, lastIndex))
-			return calc_BufRate;
+    int inRate(size_t beginIndex, size_t endIndex)
+    {
+        assert( beginIndex <= endIndex );
+        if (isScalarRate(beginIndex, endIndex))
+            return calc_ScalarRate;
+        if (isBufRate(beginIndex, endIndex))
+            return calc_BufRate;
 
-		return calc_FullRate;
-	}
+        return calc_FullRate;
+    }
 
-	bool isScalarRate(size_t firstIndex, size_t lastIndex)
-	{
-		for ( size_t index = firstIndex; index != lastIndex; ++index ) {
-			if (SCUnit::inRate(index) != calc_ScalarRate) {
-				return false;
-				break;
-			}
-		}
-		return true;
-	}
+    bool isScalarRate(size_t beginIndex, size_t endIndex)
+    {
+        for ( size_t index = beginIndex; index != endIndex; ++index ) {
+            if (SCUnit::inRate(index) != calc_ScalarRate) {
+                return false;
+                break;
+            }
+        }
+        return true;
+    }
 
-	bool isBufRate(size_t firstIndex, size_t lastIndex)
-	{
-		for ( size_t index = firstIndex; index != lastIndex; ++index ) {
-			if (SCUnit::inRate(index) > calc_BufRate) {
-				return false;
-				break;
-			}
-		}
-		return true;
-	}
+    bool isBufRate(size_t beginIndex, size_t endIndex)
+    {
+        for ( size_t index = beginIndex; index != endIndex; ++index ) {
+            if (SCUnit::inRate(index) > calc_BufRate) {
+                return false;
+                break;
+            }
+        }
+        return true;
+    }
 
-
-	/// calculate slope value
-	template <typename FloatTypeA, typename FloatTypeB>
-	auto calcSlope(FloatTypeA next, FloatTypeB prev) const
-	{
-		const Unit * unit = this;
-		return ((next - prev) * unit->mRate->mSlopeFactor);
-	}
+    /// calculate slope value
+    template <typename FloatTypeA, typename FloatTypeB>
+    auto calcSlope(FloatTypeA next, FloatTypeB prev) const
+    {
+        const Unit * unit = this;
+        return ((next - prev) * unit->mRate->mSlopeFactor);
+    }
 };
 
 }

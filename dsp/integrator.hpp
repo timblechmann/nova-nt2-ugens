@@ -35,7 +35,6 @@ template <typename SampleType, typename ParameterType>
 struct Integrator
 {
     Integrator (ParameterType a = ParameterType(0.f)):
-        _y_1(0.f),
         _a(a)
     {}
 
@@ -113,7 +112,7 @@ struct Integrator
 
     ParameterType _a;
 private:
-    SampleType _y_1;
+    SampleType _y_1 = {0};
 };
 
 }

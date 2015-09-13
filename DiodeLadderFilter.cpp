@@ -146,7 +146,7 @@ struct HPFParameter<slope, InternalType>
 // TODO: add some oversampling
 template <size_t Channels, bool hasScalarArguments>
 struct DiodeLadderFilter:
-        public NovaUnit
+    public NovaUnit
 {
     static const size_t numberOfChannels    = Channels;
     static const size_t parameterInputSize  = hasScalarArguments ? 1 : Channels;
@@ -173,9 +173,9 @@ public:
         setFeedbackHPF(newHPCutoff * sampleDur());
         _hpCutoff = newHPCutoff;
 
-        const auto freqRate = inRate(freqInputIndex, parameterInputSize);
-        const auto qRate    = inRate(qInputIndex,    parameterInputSize);
-        const auto hpfRate  = inRate(hpfInputIndex,  parameterInputSize);
+        const auto freqRate = inRate(freqInputIndex, freqInputIndex + parameterInputSize);
+        const auto qRate    = inRate(qInputIndex,    qInputIndex    + parameterInputSize);
+        const auto hpfRate  = inRate(hpfInputIndex,  hpfInputIndex  + parameterInputSize);
 
         if (freqRate == calc_FullRate) {
             switch ( qRate ) {
