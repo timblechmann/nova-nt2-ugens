@@ -10,6 +10,7 @@ file(GLOB headers_2 *hpp)
 
 set(sources
   NovaAmbisonicUGens.cpp
+  NovaLeakDC.cpp
   NovaMultiFilters.cpp
   NovaSaturator.cpp
   NovaFeedbackAM.cpp
@@ -32,12 +33,13 @@ ExternalProject_Add( NT2
 add_definitions(-DBOOST_SIMD_NO_STRICT_ALIASING)
 
 add_scplugin(NovaAmbisonicUGens NovaAmbisonicUGens.cpp ${headers} ${headers_2})
+add_scplugin(NovaLeakDC         NovaLeakDC.cpp)
 add_scplugin(NovaMultiFilters   NovaMultiFilters.cpp)
 add_scplugin(NovaSaturator      NovaSaturator.cpp)
 add_scplugin(NovaFeedbackAM     NovaFeedbackAM.cpp)
 add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
 
-foreach( plugin NovaAmbisonicUGens NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter )
+foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter )
   add_dependencies( ${plugin}           NT2)
   add_dependencies( ${plugin}_supernova NT2)
   target_include_directories( ${plugin}           PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/nt2/build/include)
