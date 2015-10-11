@@ -20,24 +20,9 @@
 #include "SC_PlugIn.hpp"
 
 #include "boost/simd/include/pack.hpp"
-#include "boost/simd/include/native.hpp"
-#include "boost/simd/operator/include/functions/minus.hpp"
-#include "boost/simd/operator/include/functions/multiplies.hpp"
-#include "boost/simd/operator/include/functions/plus.hpp"
-
-#include "boost/simd/include/constants/one.hpp"
-#include "boost/simd/include/constants/two.hpp"
-#include "boost/simd/include/constants/quarter.hpp"
-
-#include "boost/simd/arithmetic/include/functions/abs.hpp"
-#include "boost/simd/arithmetic/include/functions/fast_rec.hpp"
-#include "boost/simd/ieee/include/functions/copysign.hpp"
-
-#include <nt2/include/functions/pow.hpp>
-#include <nt2/include/functions/pow_abs.hpp>
-
 #include "producer_consumer_functors.hpp"
 
+#include "dsp/saturators.hpp"
 #include "dsp/utils.hpp"
 
 
@@ -161,11 +146,7 @@ public:
     template <typename SampleType>
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
     {
-        using namespace boost::simd;
-
-        auto saturated = level - (level * level * fast_rec( level + abs(sig) ) );
-
-        return copysign(saturated, sig);
+        return nova::saturator::hyperbol( sig, level );
     }
 
     static float verifyLevel(float arg)
@@ -182,14 +163,7 @@ public:
     template <typename SampleType>
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
     {
-        using namespace boost::simd;
-
-        auto limit = Two<SampleType>() * level;
-        auto clippedSignal = nova::clip2<SampleType>(sig, limit);
-
-        auto factor = One<SampleType>() - ( abs(clippedSignal) * Quarter<SampleType>() * fast_rec(level));
-
-        return sig * factor;
+        return nova::saturator::parabol( sig, level );
     }
 
     static float verifyLevel(float arg)
@@ -207,12 +181,7 @@ public:
     template <typename SampleType>
     static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
     {
-        using namespace boost::simd;
-
-        //		auto pow = nt2::pow(abs(sig), level);
-        //		auto ret = boost::simd::copysign(pow, sig);
-        //		return pow;
-        return boost::simd::copysign(nt2::pow_abs(sig, level), sig);
+        return nova::saturator::pow( sig, level );
     }
 
     static float verifyLevel(float arg)
