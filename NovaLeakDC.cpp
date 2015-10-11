@@ -22,9 +22,6 @@
 #include "dsp/leak_dc.hpp"
 #include "producer_consumer_functors.hpp"
 
-#include <boost/math/constants/constants.hpp>
-#include <boost/simd/include/constants/pi.hpp>
-
 #include "dsp/utils.hpp"
 
 #include <cmath>
@@ -35,12 +32,12 @@ InterfaceTable *ft;
 
 namespace nova {
 
-namespace constants = boost::math::constants;
-
 template <int NumberOfChannels>
 struct NovaLeakDC:
     public NovaUnit,
     public nova::multichannel::SignalInput< NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels >,
+
+    public nova::ControlInput< NovaLeakDC<NumberOfChannels>, NumberOfChannels >,
 
     public nova::multichannel::OutputSink< NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels >
 
@@ -51,14 +48,17 @@ struct NovaLeakDC:
     static const size_t IndexOfCoefficient = NumberOfChannels;
 
     typedef nova::multichannel::SignalInput< NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels > InputSignal;
+    typedef nova::ControlInput< NovaLeakDC<NumberOfChannels>, NumberOfChannels >                  FreqInput;
+
     typedef nova::multichannel::OutputSink<  NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels > OutputSink;
 
     NovaLeakDC()
     {
-        initFilter(in0(IndexOfCoefficient));
+        auto cutOff = FreqInput::readInput();
+        initFilter( cutOff );
 
         auto inFn = InputSignal::template makeInputSignal<vDouble>();
-        _filter._x_1 = inFn();
+        _filter.set_x1( inFn() );
 
         switch (inRate(IndexOfCoefficient))
         {
@@ -66,9 +66,12 @@ struct NovaLeakDC:
             set_calc_function<NovaLeakDC, &NovaLeakDC::next_i>();
             break;
 
+        case calc_FullRate:
+            set_calc_function<NovaLeakDC, &NovaLeakDC::next_a>();
+            break;
+
         case calc_BufRate:
         default:
-            _freq = std::numeric_limits<float>::quiet_NaN();
             set_calc_function<NovaLeakDC, &NovaLeakDC::next_k>();
         }
     }
@@ -80,10 +83,21 @@ struct NovaLeakDC:
 
     float designFilter ( float cutoffFreq )
     {
-        cutoffFreq = nova::clip(cutoffFreq, 0.1f, (float)sampleRate());
+        return Filter::computeAForCutoff( cutoffFreq, (float)sampleRate(), (float)sampleDur() );
+    }
 
-        float parameter = std::exp( -2.f * constants::pi<float>() * cutoffFreq * (float)sampleDur());
-        return parameter;
+    void next_a(int inNumSamples)
+    {
+        auto inFn       = InputSignal::template makeInputSignal<vDouble>();
+        auto outFn      = OutputSink:: template makeSink<vDouble>();
+        auto freqInFunc = FreqInput::template makeAudioInputSignal<float>();
+
+        auto parameterFunctor = [=] () mutable {
+            auto freq = freqInFunc();
+            return designFilter( freq );
+        };
+
+        _filter.run(inFn, outFn, inNumSamples, parameterFunctor );
     }
 
     void next_i(int inNumSamples)
@@ -91,24 +105,18 @@ struct NovaLeakDC:
         auto inFn  = InputSignal::template makeInputSignal<vDouble>();
         auto outFn = OutputSink:: template makeSink<vDouble>();
 
-        _filter.run(inFn, outFn, inNumSamples);
+        _filter.run(inFn, outFn, inNumSamples );
     }
 
     void next_k(int inNumSamples)
     {
-        float newFreq = in0(IndexOfCoefficient);
-        if (newFreq != _freq) {
-            float oldA = _filter._a;
-            float newA = designFilter( newFreq );
-
-            float slopeA = calcSlope(newA, oldA);
-
-            _freq = newFreq;
-
+        if ( FreqInput::changed() ) {
+            float oldA = _filter.getA()();
+            float newA = designFilter( FreqInput::readInput() );
             auto inFn  = InputSignal::template makeInputSignal<vDouble>();
             auto outFn = OutputSink:: template makeSink<vDouble>();
 
-            _filter.run(inFn, outFn, inNumSamples, slopeA);
+            _filter.run(inFn, outFn, inNumSamples, makeSlope(oldA, newA) );
             _filter.set_a( newA );
         } else {
             next_i(inNumSamples);
@@ -116,7 +124,6 @@ struct NovaLeakDC:
     }
 
     Filter _filter;
-    float _freq;
 };
 
 }

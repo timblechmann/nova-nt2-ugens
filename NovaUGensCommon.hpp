@@ -166,13 +166,26 @@ struct NovaUnit:
 
     /// calculate slope value
     template <typename FloatTypeA, typename FloatTypeB>
-    auto calcSlope(FloatTypeA next, FloatTypeB prev) const
+    auto calcSlope(FloatTypeA next, FloatTypeB current) const
     {
         const Unit * unit = this;
-        return ((next - prev) * unit->mRate->mSlopeFactor);
+        return ((next - current) * unit->mRate->mSlopeFactor);
+    }
+
+    template <typename FloatTypeA, typename FloatTypeB>
+    auto makeSlope(FloatTypeA next, FloatTypeB current) const
+    {
+        FloatTypeA increment = calcSlope( next, current );
+        return [=, state = current] () mutable {
+            auto ret = state;
+            state += increment;
+            return ret;
+        };
     }
 };
 
 }
+
+
 
 #endif // NOVAUGENSCOMMON_HPP
