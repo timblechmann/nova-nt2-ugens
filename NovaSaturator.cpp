@@ -25,20 +25,40 @@
 #include "dsp/saturators.hpp"
 #include "dsp/utils.hpp"
 
+#include <NovaUGensCommon.hpp>
+
+#include <boost/simd/include/functions/max.hpp>
 
 namespace {
 
 InterfaceTable *ft;
 
+struct VerifyLevelInput
+{
+    template <typename Arg>
+    auto operator()(Arg && arg) const
+    {
+        return boost::simd::max( arg, 1e-10f );
+    }
+};
+
 template <typename Parent>
 struct SaturationBase:
-    public SCUnit
+    public nova::NovaUnit,
+    public nova::SignalInput<SaturationBase<Parent>, 0>,
+    public nova::ControlInput<SaturationBase<Parent>, 1, VerifyLevelInput>,
+
+    public nova::OutputSink<SaturationBase<Parent>, 0>
 {
-    static float verifyLevel ( float arg ) { return arg; }
+    typedef nova::SignalInput<SaturationBase<Parent>, 0>                    SignalInput;
+    typedef nova::ControlInput<SaturationBase<Parent>, 1, VerifyLevelInput> LevelInput;
+
+    typedef nova::OutputSink<SaturationBase<Parent>, 0>                     SignalOutput;
+
 
     SaturationBase()
     {
-        switch (inRate(1)) {
+        switch (SCUnit::inRate(1)) {
         case calc_FullRate:
             if (boost::simd::is_aligned( bufferSize(), 8 ) )
                 set_calc_function<SaturationBase, &SaturationBase::run_a< boost::simd::pack<float, 8> > >();
@@ -47,7 +67,6 @@ struct SaturationBase:
             break;
 
         case calc_BufRate:
-            _level = Parent::verifyLevel( in0(1) );
             if (boost::simd::is_aligned( bufferSize(), 8 ) )
                 set_calc_function<SaturationBase, &SaturationBase::run_k< boost::simd::pack<float, 8> > >();
             else
@@ -56,7 +75,6 @@ struct SaturationBase:
 
         case calc_ScalarRate:
         default:
-            _level = Parent::verifyLevel( in0(1) );
             if (boost::simd::is_aligned( bufferSize(), 8 ) )
                 set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 8> > >();
             else
@@ -96,9 +114,9 @@ struct SaturationBase:
     template <typename SampleType>
     void run_a (int inNumSamples)
     {
-        auto input0 = nova::Packer<SampleType, 0>(this);
-        auto input1 = nova::Packer<SampleType, 1>(this);
-        auto output = nova::Unpacker<SampleType, 0>(this);
+        auto input0 = SignalInput ::template makeInputSignal<SampleType>();
+        auto input1 = LevelInput  ::template makeAudioInputSignal<SampleType>();
+        auto output = SignalOutput::template makeSink<SampleType>();
 
         perform<SampleType>( inNumSamples, input0, input1, output );
     }
@@ -106,20 +124,15 @@ struct SaturationBase:
     template <typename SampleType>
     void run_k (int inNumSamples)
     {
-        float newLevel = Parent::verifyLevel( in0(1) );
-        if (newLevel != _level) {
-            float slope = calcSlope(newLevel, _level);
-
-            auto input0 = nova::Packer<SampleType, 0>(this);
-            auto input1 = nova::makeRamp<SampleType>(_level, slope);
-            auto output = nova::Unpacker<SampleType, 0>(this);
-            _level = newLevel;
+        auto input0 = SignalInput::template makeInputSignal<SampleType>();
+        if ( LevelInput::changed() ) {
+            auto input1 = LevelInput  ::template makeSmoothedInputSignal<SampleType>( inNumSamples );
+            auto output = SignalOutput::template makeSink<SampleType>();
 
             perform<SampleType>( inNumSamples, input0, input1, output );
         } else {
-            auto input0 = nova::Packer<SampleType, 0>(this);
-            auto input1 = nova::Scalar<SampleType>(_level);
-            auto output = nova::Unpacker<SampleType, 0>(this);
+            auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
+            auto output = SignalOutput::template makeSink<SampleType>();
 
             perform<SampleType>( inNumSamples, input0, input1, output );
         }
@@ -128,14 +141,12 @@ struct SaturationBase:
     template <typename SampleType>
     void run_i (int inNumSamples)
     {
-        auto input0 = nova::Packer<SampleType, 0>(this);
-        auto input1 = nova::Scalar<SampleType>(_level);
-        auto output = nova::Unpacker<SampleType, 0>(this);
+        auto input0 = SignalInput ::template makeInputSignal<SampleType>();
+        auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
+        auto output = SignalOutput::template makeSink<SampleType>();
 
         perform<SampleType>( inNumSamples, input0, input1, output );
     }
-
-    float _level;
 };
 
 class HyperbolSaturation : public SaturationBase<HyperbolSaturation>
@@ -147,11 +158,6 @@ public:
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
     {
         return nova::saturator::hyperbol( sig, level );
-    }
-
-    static float verifyLevel(float arg)
-    {
-        return std::max( arg, 1e-10f );
     }
 };
 
@@ -165,11 +171,6 @@ public:
     {
         return nova::saturator::parabol( sig, level );
     }
-
-    static float verifyLevel(float arg)
-    {
-        return std::max( arg, 1e-10f );
-    }
 };
 
 
@@ -182,11 +183,6 @@ public:
     static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
     {
         return nova::saturator::pow( sig, level );
-    }
-
-    static float verifyLevel(float arg)
-    {
-        return std::max( arg, 1e-10f );
     }
 };
 

@@ -22,6 +22,11 @@
 #ifndef NOVAUGENSCOMMON_HPP
 #define NOVAUGENSCOMMON_HPP
 
+#include <algorithm>
+#include <boost/range/irange.hpp>
+
+#include <producer_consumer_functors.hpp>
+
 namespace nova {
 
 struct NovaUnit:
@@ -115,6 +120,16 @@ struct NovaUnit:
     }
 #endif
 
+    // input functors
+    template< typename ResultType, int input >
+    inline auto makeScalarInput() const
+    {
+        ResultType inputSignal = boost::simd::splat<ResultType>( SCUnit::in0( input ) );
+        return [=] { return inputSignal; };
+    }
+
+
+    // rate checks
     int inRate(size_t beginIndex, size_t endIndex)
     {
         assert( beginIndex <= endIndex );
@@ -126,26 +141,22 @@ struct NovaUnit:
         return calc_FullRate;
     }
 
-    bool isScalarRate(size_t beginIndex, size_t endIndex)
+    bool isScalarRate(size_t beginIndex, size_t endIndex) const
     {
-        for ( size_t index = beginIndex; index != endIndex; ++index ) {
-            if (SCUnit::inRate(index) != calc_ScalarRate) {
-                return false;
-                break;
-            }
-        }
-        return true;
+        auto range = boost::irange(beginIndex, endIndex);
+
+        return std::all_of( range.begin(), range.end(), [this] (auto index) {
+            return this->SCUnit::inRate(index) == calc_ScalarRate;
+        });
     }
 
-    bool isBufRate(size_t beginIndex, size_t endIndex)
+    bool isBufRate(size_t beginIndex, size_t endIndex) const
     {
-        for ( size_t index = beginIndex; index != endIndex; ++index ) {
-            if (SCUnit::inRate(index) > calc_BufRate) {
-                return false;
-                break;
-            }
-        }
-        return true;
+        auto range = boost::irange(beginIndex, endIndex);
+
+        return std::all_of( range.begin(), range.end(), [this] (auto index) {
+            return this->SCUnit::inRate(index) <= calc_BufRate;
+        });
     }
 
     /// calculate slope value

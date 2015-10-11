@@ -28,13 +28,15 @@
 #include "boost/simd/include/functions/extract.hpp"
 #include "boost/simd/include/functions/groups.hpp"
 #include "boost/simd/include/functions/insert.hpp"
+#include <boost/simd/include/functions/splat.hpp>
 #include "boost/simd/include/functions/split.hpp"
+
 
 #include "boost/simd/operator/include/functions/plus.hpp"
 #include "boost/simd/operator/include/functions/multiplies.hpp"
 #include "boost/simd/include/functions/assign.hpp"
 
-
+#include <boost/dispatch/meta/is_scalar.hpp>
 #include "boost/simd/sdk/meta/cardinal_of.hpp"
 
 namespace nova {
@@ -242,7 +244,7 @@ struct Ramp
 
 
 template <typename OutputType, typename Scalar>
-Ramp<OutputType> makeRamp( Scalar base, Scalar slope )
+auto makeRamp( Scalar base, Scalar slope )
 {
     using namespace boost::simd;
 
@@ -296,6 +298,186 @@ struct InputInterleaver
     }
 };
 
+namespace detail {
+
+struct Identity {
+    template <typename Arg>
+    auto operator()(Arg && arg) const { return arg; }
+};
+
+}
+
+
+template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail::Identity>
+struct ScalarInput:
+    private InputFunctor
+{
+    auto readInput()
+    {
+        return InputFunctor::operator()( static_cast<UGenClass*>(this)->in0( InputIndex ) );
+    }
+
+    template< typename OutputType >
+    auto makeInputSignal()
+    {
+        OutputType inputSignal = boost::simd::splat<OutputType>( readInput() );
+        return [=] { return inputSignal; };
+    }
+};
+
+
+template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail::Identity >
+struct SlopedInput:
+    ScalarInput< UGenClass, InputIndex, InputFunctor >
+{
+    SlopedInput():
+        mState( readInput() )
+    {}
+
+    auto readInput()
+    {
+        return ScalarInput< UGenClass, InputIndex, InputFunctor >::readInput();
+    }
+
+    template <typename SIMDType,
+              typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
+                                       >::type * = nullptr>
+    auto makeInputSignal( int numberOfSamples )
+    {
+        using ScalarType = typename boost::simd::meta::scalar_of<SIMDType>::type;
+
+        ScalarType current = mState;
+        ScalarType next  = readInput();
+        ScalarType slope = (next - current) / ScalarType( numberOfSamples );
+        mState = next;
+        return makeRamp<SIMDType>( current, slope );
+    }
+
+    template <typename ScalarType,
+              typename std::enable_if< boost::dispatch::meta::is_scalar<ScalarType>::value
+                                       >::type * = nullptr>
+    auto makeInputSignal( int numberOfSamples )
+    {
+        ScalarType current = mState;
+        ScalarType next  = readInput();
+        ScalarType slope = (next - current) / ScalarType( numberOfSamples );
+        mState = next;
+        return makeRamp<ScalarType>( current, slope );
+    }
+
+    template <typename OutputType>
+    auto makeScalarInputSignal()
+    {
+        return ScalarInput< UGenClass, InputIndex, InputFunctor >::template makeInputSignal<OutputType>();
+    }
+
+    bool changed()
+    {
+        float next = readInput();
+        return next != mState;
+    }
+
+    float mState;
+};
+
+
+template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail::Identity>
+struct SignalInput:
+    InputFunctor
+{
+    const float * inputVector()
+    {
+        return static_cast<UGenClass*>(this)->in( InputIndex );
+    }
+
+    template <typename SIMDType,
+              typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
+                                       >::type * = nullptr>
+    auto makeInputSignal()
+    {
+        const float * input = inputVector();
+        return [=] () mutable {
+            SIMDType ret = InputFunctor::operator()( boost::simd::aligned_load<SIMDType>( input ) );
+            input += boost::simd::meta::cardinal_of<SIMDType>::value;
+            return ret;
+        };
+    }
+
+    template <typename ScalarType,
+              typename std::enable_if< boost::dispatch::meta::is_scalar<ScalarType>::value
+                                       >::type * = nullptr>
+    auto makeInputSignal()
+    {
+        const float * input = inputVector();
+        return [=] () mutable {
+            ScalarType ret = InputFunctor::operator()( *input );
+            input += 1;
+            return ret;
+        };
+    }
+};
+
+
+template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail::Identity>
+struct ControlInput:
+    SlopedInput<UGenClass, InputIndex, InputFunctor>,
+    SignalInput<UGenClass, InputIndex, InputFunctor>
+{
+    /* audio rate input */
+    template <typename OutputType>
+    auto makeAudioInputSignal()
+    {
+        return SignalInput<UGenClass, InputIndex, InputFunctor>::template makeInputSignal<OutputType>();
+    }
+
+    /* control rate input */
+    template <typename OutputType>
+    auto makeSmoothedInputSignal( int numberOfSamples )
+    {
+        return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeInputSignal<OutputType>( numberOfSamples );
+    }
+
+    /* scalar input */
+    template <typename OutputType>
+    auto makeScalarInputSignal()
+    {
+        return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeScalarInputSignal<OutputType>();
+    }
+};
+
+
+template <typename UGenClass, size_t OutputIndex>
+struct OutputSink
+{
+    float * outputVector()
+    {
+        return static_cast<UGenClass*>(this)->out( OutputIndex );
+    }
+
+    template <typename SIMDType,
+              typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
+                                       >::type * = nullptr>
+    auto makeSink()
+    {
+        float * output = outputVector();
+        return [=] (SIMDType arg) mutable {
+            boost::simd::aligned_store<SIMDType>( arg, output );
+            output += boost::simd::meta::cardinal_of<SIMDType>::value;
+        };
+    }
+
+    template <typename ScalarType,
+              typename std::enable_if< boost::dispatch::meta::is_scalar<ScalarType>::value
+                                       >::type * = nullptr>
+    auto makeSink()
+    {
+        float * output = outputVector();
+        return [=] (ScalarType arg) mutable {
+            *output = arg;
+            output += 1;
+        };
+    }
+};
 
 
 }
