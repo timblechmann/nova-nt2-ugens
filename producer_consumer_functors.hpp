@@ -49,7 +49,7 @@ template <>
 struct packGenerator<1>
 {
     template <typename Result, typename Functor>
-    static Result generate(Functor const & f)
+    static Result generate(Functor && f)
     {
         Result ret = f();
         return ret;
@@ -60,7 +60,7 @@ template <>
 struct packGenerator<2>
 {
     template <typename Result, typename Functor>
-    static Result generate(Functor const & f)
+    static Result generate(Functor && f)
     {
         auto a = f();
         auto b = f();
@@ -73,7 +73,7 @@ template <>
 struct packGenerator<4>
 {
     template <typename Result, typename Functor>
-    static Result generate(Functor const & f)
+    static Result generate(Functor && f)
     {
         auto a = f();
         auto b = f();
@@ -88,7 +88,7 @@ template <>
 struct packGenerator<8>
 {
     template <typename Result, typename Functor>
-    static Result generate(Functor const & f)
+    static Result generate(Functor && f)
     {
         auto a = f();
         auto b = f();
@@ -479,6 +479,79 @@ struct OutputSink
     }
 };
 
+namespace multichannel {
+
+template <typename UGenClass, size_t InputIndex, size_t NumberOfChannels, typename InputFunctor = detail::Identity>
+struct ScalarInput:
+    private InputFunctor
+{
+    template< typename OutputType >
+    auto readInputs()
+    {
+        using pack = boost::simd::pack<OutputType, NumberOfChannels>;
+
+        return packGenerator<NumberOfChannels>::template generate<pack>( [this, index = 0] () mutable {
+             return InputFunctor::operator ()( static_cast<UGenClass*>(this)->in0( InputIndex + index++ ) );
+        });
+    }
+
+    template< typename OutputType >
+    auto makeInputSignal()
+    {
+        OutputType inputSignal = readInputs<OutputType>();
+        return [=] { return inputSignal; };
+    }
+};
+
+
+template <typename UGenClass, size_t InputIndex, size_t NumberOfChannels, typename InputFunctor = detail::Identity>
+struct SignalInput:
+    private InputFunctor
+{
+    template< typename OutputType >
+    auto readInputs( int sampleIndex )
+    {
+        static_assert( NumberOfChannels == boost::simd::meta::cardinal_of<OutputType>::value, "failed" );
+
+        return packGenerator<NumberOfChannels>::template generate<OutputType>( [=, channelIndex = 0] () mutable {
+            auto * input = static_cast<UGenClass*>(this)->SCUnit::in( InputIndex + channelIndex++ );
+            return InputFunctor::operator ()( input[sampleIndex] );
+        });
+    }
+
+    template< typename OutputType >
+    auto makeInputSignal()
+    {
+        return [=, sampleIndex = 0] () mutable {
+            return readInputs<OutputType>( sampleIndex++ );
+        };
+    }
+};
+
+
+template <typename UGenClass, size_t OutputIndex, size_t NumberOfChannels>
+struct OutputSink
+{
+    float * outputVector( unsigned index )
+    {
+        return static_cast<UGenClass*>(this)->out( OutputIndex + index );
+    }
+
+    template <typename OutputType>
+    auto makeSink()
+    {
+        return [=, sampleIndex = 0] (OutputType const & arg) mutable {
+
+            for (int channelIndex = 0; channelIndex != NumberOfChannels; ++channelIndex) {
+                float * output = outputVector( channelIndex );
+                output[sampleIndex] = boost::simd::extract(arg, channelIndex);
+            }
+            sampleIndex += 1;
+        };
+    }
+};
+
+}
 
 }
 

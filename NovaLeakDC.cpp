@@ -17,7 +17,7 @@
  */
 
 
-#include "NovaUnitFacade.hpp"
+#include "NovaUGensCommon.hpp"
 
 #include "dsp/leak_dc.hpp"
 #include "producer_consumer_functors.hpp"
@@ -39,18 +39,25 @@ namespace constants = boost::math::constants;
 
 template <int NumberOfChannels>
 struct NovaLeakDC:
-    public SCUnit
+    public NovaUnit,
+    public nova::multichannel::SignalInput< NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels >,
+
+    public nova::multichannel::OutputSink< NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels >
+
 {
     typedef typename nova::as_pack< double, NumberOfChannels >::type vDouble;
     typedef nova::LeakDC< vDouble, double > Filter;
 
     static const size_t IndexOfCoefficient = NumberOfChannels;
 
+    typedef nova::multichannel::SignalInput< NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels > InputSignal;
+    typedef nova::multichannel::OutputSink<  NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels > OutputSink;
+
     NovaLeakDC()
     {
         initFilter(in0(IndexOfCoefficient));
 
-        auto inFn  = nova::Interleaver<vDouble>(this);
+        auto inFn = InputSignal::template makeInputSignal<vDouble>();
         _filter._x_1 = inFn();
 
         switch (inRate(IndexOfCoefficient))
@@ -81,8 +88,8 @@ struct NovaLeakDC:
 
     void next_i(int inNumSamples)
     {
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto outFn = nova::Deinterleaver<vDouble>(this);
+        auto inFn  = InputSignal::template makeInputSignal<vDouble>();
+        auto outFn = OutputSink:: template makeSink<vDouble>();
 
         _filter.run(inFn, outFn, inNumSamples);
     }
@@ -98,8 +105,8 @@ struct NovaLeakDC:
 
             _freq = newFreq;
 
-            auto inFn  = nova::Interleaver<vDouble>(this);
-            auto outFn = nova::Deinterleaver<vDouble>(this);
+            auto inFn  = InputSignal::template makeInputSignal<vDouble>();
+            auto outFn = OutputSink:: template makeSink<vDouble>();
 
             _filter.run(inFn, outFn, inNumSamples, slopeA);
             _filter.set_a( newA );

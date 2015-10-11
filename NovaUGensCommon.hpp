@@ -130,7 +130,12 @@ struct NovaUnit:
 
 
     // rate checks
-    int inRate(size_t beginIndex, size_t endIndex)
+    int inRate(size_t index) const
+    {
+        return SCUnit::inRate(index);
+    }
+
+    int inRate(size_t beginIndex, size_t endIndex) const
     {
         assert( beginIndex <= endIndex );
         if (isScalarRate(beginIndex, endIndex))
