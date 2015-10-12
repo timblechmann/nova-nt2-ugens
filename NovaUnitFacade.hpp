@@ -36,115 +36,118 @@ namespace nova {
 // * nova::toDouble -> toParameterDSPType
 //
 template < class DerivedClass,
-		   int NumberOfChannels,
-		   typename ScalarSampleType = float,
-		   bool ScalarArguments = false>
+           int NumberOfChannels,
+           typename ScalarSampleType = float,
+           bool ScalarArguments = false>
 struct NovaUnitUnary:
-	public NovaUnit
+    public NovaUnit,
+    public nova::multichannel::SignalInput< NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, 0, NumberOfChannels >,
+    public nova::multichannel::OutputSink<  NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, 0, NumberOfChannels >,
+
+    public nova::multichannel::ControlInput< NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, NumberOfChannels, ScalarArguments ? 1 : NumberOfChannels >
 {
-	static const size_t ParameterSize = ScalarArguments ? 1
-														: NumberOfChannels;
+    static const size_t ParameterSize = ScalarArguments ? 1
+                                                        : NumberOfChannels;
 
-	typedef float            FrontendSampleType;
-	typedef ScalarSampleType BackendSampleType;
+    typedef float            FrontendSampleType;
+    typedef ScalarSampleType BackendSampleType;
 
-	typedef typename nova::as_pack<double, NumberOfChannels>::type SampleType;
-	typedef typename nova::as_pack<float, ParameterSize>::type  ParameterType;
-	typedef typename nova::as_pack<double, ParameterSize>::type ParameterDSPType;
+    typedef typename nova::as_pack<double, NumberOfChannels>::type SampleType;
+    typedef typename nova::as_pack<float, ParameterSize>::type  ParameterType;
+    typedef typename nova::as_pack<double, ParameterSize>::type ParameterDSPType;
 
-	typedef InputInterleaver<ParameterSize> ParameterReader;
+    // inputs:
+    using SignalInput = typename nova::multichannel::SignalInput< NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, 0, NumberOfChannels >;
+    using OutputSink  = typename nova::multichannel::OutputSink<  NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, 0, NumberOfChannels >;
 
-	static const size_t IndexOfParameter = NumberOfChannels;
+    using ParameterInput = nova::multichannel::ControlInput< NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, NumberOfChannels, ScalarArguments ? 1 : NumberOfChannels >;
 
-	NovaUnitUnary()
-	{
-		initDSP();
+    static const size_t IndexOfParameter = NumberOfChannels;
 
-		if (isScalarRate(IndexOfParameter, IndexOfParameter + ParameterSize)) {
-			set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_i>();
-			return;
-		}
+    NovaUnitUnary()
+    {
+        initDSP();
 
-		if (isBufRate(IndexOfParameter, IndexOfParameter + ParameterSize)) {
-			set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_k>();
-			return;
-		}
+        if (isScalarRate(IndexOfParameter, IndexOfParameter + ParameterSize)) {
+            set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_i>();
+            return;
+        }
 
-		set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_a>();
-	}
+        if (isBufRate(IndexOfParameter, IndexOfParameter + ParameterSize)) {
+            set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_k>();
+            return;
+        }
 
-	void initDSP()
-	{
-		ParameterType newParameter = ParameterReader::read(this, IndexOfParameter);
+        set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_a>();
+    }
 
-		ParameterType checkedParameter = DerivedClass::checkParameter( newParameter );
+    void initDSP()
+    {
+        auto & dspEngine = getEngine();
+        dspEngine.setState( computeState( ParameterInput::readInput() ) );
+    }
 
-		auto & dspEngine = getEngine();
-		dspEngine.setParameter( nova::toDouble<ParameterDSPType>( checkedParameter ) );
+    auto computeState ( ParameterType parameter )
+    {
+        return computeState( nova::toDouble<ParameterDSPType>( parameter ) );
+    }
 
-		_cachedParameter = newParameter;
-	}
-
-	// hooks
-
-	template <typename AType>
-	static auto checkParameter(AType const & a) { return a; }
-
-	// static void getDSPEngine(DerivedClass * self);
+    auto computeState ( ParameterDSPType parameter )
+    {
+        auto & dspEngine = getEngine();
+        return dspEngine.computeState( parameter, makeDSPContext() );
+    }
 
 
-	void next_i(int inNumSamples)
-	{
-		auto inFn  = nova::Interleaver<SampleType>(this);
-		auto outFn = nova::Deinterleaver<SampleType>(this);
+    // process function
+    void next_i(int inNumSamples)
+    {
+        auto inSig   = SignalInput::template makeInputSignal<SampleType>();
+        auto outSink = OutputSink ::template makeSink<SampleType>();
 
-		auto & dspEngine = getEngine();
-		dspEngine.run(inFn, outFn, inNumSamples);
-	}
+        auto & dspEngine = getEngine();
+        dspEngine.run(inSig, outSink, inNumSamples);
+    }
 
-	void next_k(int inNumSamples)
-	{
-		ParameterType newParameter = ParameterReader::read(this, IndexOfParameter);
-		using namespace boost::simd;
+    void next_k(int inNumSamples)
+    {
+        if( !ParameterInput::changed() ) {
+            next_i(inNumSamples);
+        } else {
+            auto & dspEngine = getEngine();
 
-		logical<float> coeffConstant = compare_equal(newParameter, _cachedParameter);
+            auto currentState = dspEngine.currentState();
+            auto nextState    = computeState( ParameterInput::readInput() );
+            auto state        = parameter::makeSlope( currentState, nextState, mRate->mSlopeFactor );
+            dspEngine.setState( nextState );
 
-		if (coeffConstant) {
-			next_i(inNumSamples);
-		} else {
-			ParameterType checkedParameter = DerivedClass::checkParameter( newParameter );
+            auto inSig   = SignalInput::template makeInputSignal<SampleType>();
+            auto outSink = OutputSink ::template makeSink<SampleType>();
 
-			auto & dspEngine = getEngine();
+            dspEngine.run(inSig, outSink, inNumSamples, state);
+        }
+    }
 
-			auto slope = calcSlope( nova::toDouble<ParameterDSPType>( checkedParameter ), dspEngine.getParameter() );
-			_cachedParameter = newParameter;
+    void next_a(int inNumSamples)
+    {
+        auto inSig     = SignalInput::template makeInputSignal<SampleType>();
+        auto inParamFn = ParameterInput::template makeAudioInputSignal<ParameterType>();
+        auto outSink   = OutputSink ::template makeSink<SampleType>();
 
-			auto inFn  = nova::Interleaver<SampleType>(this);
-			auto outFn = nova::Deinterleaver<SampleType>(this);
+        auto & dspEngine = getEngine();
 
-			dspEngine.run(inFn, outFn, inNumSamples, slope);
-			dspEngine.setParameter( nova::toDouble<ParameterDSPType>( checkedParameter ) );
-		}
-	}
+        auto stateIn = [&]() {
+            return computeState( inParamFn() );
+        };
 
-	void next_a(int inNumSamples)
-	{
-		auto inFn      = nova::Interleaver<SampleType>(this);
-		auto inParamFn = nova::Interleaver<ParameterDSPType, IndexOfParameter>(this);
-		auto outFn = nova::Deinterleaver<SampleType>(this);
+        dspEngine.run_ar(inSig, stateIn, outSink, inNumSamples);
+    }
 
-		auto & dspEngine = getEngine();
-
-		dspEngine.run_ar(inFn, inParamFn, outFn, inNumSamples);
-	}
-
-	// helpers
-	auto & getEngine()
-	{
-		return DerivedClass::getDSPEngine( static_cast<DerivedClass*>( this ) );
-	}
-
-	ParameterType _cachedParameter;
+    // helpers
+    auto & getEngine()
+    {
+        return DerivedClass::getDSPEngine( static_cast<DerivedClass*>( this ) );
+    }
 };
 
 }

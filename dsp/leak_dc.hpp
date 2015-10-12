@@ -36,30 +36,37 @@ namespace nova {
 template <typename SampleType, typename ParameterType>
 struct LeakDC
 {
-    LeakDC (ParameterType a = ParameterType(0.f)):
-        _a(a)
+    typedef boost::simd::aligned_array<ParameterType, 1, 4> ParameterState;
+
+    enum {
+        stateA
+    };
+
+    LeakDC (ParameterState state = ParameterState{0}, SampleType x1 = SampleType {0} ):
+        _state( state ),
+        _x_1(x1)
     {}
 
     // internal state
-    void set_x1( SampleType x1 ) { _x_1 = x1; }
+    void setState( ParameterState const & newState ) { _state = newState; }
+    auto getState()
+    {
+        auto ret = [=] { return _state; };
+        return ret;
+    }
+    ParameterState currentState() { return _state; }
 
     // parameters
-    void set_a (ParameterType a) {  _a = a; }
-
-    auto getA()
-    {
-        return [state = _a] { return state; };
-    }
-
-    template <typename FreqType, typename SampleRateType>
-    static auto computeAForCutoff( FreqType cutoff, SampleRateType sampleRate, SampleRateType sampleDur )
+    template <typename FreqType, typename DSPContext>
+    static auto computeState( FreqType cutoff, DSPContext const & dspContext )
     {
         using namespace boost::simd;
 
-        auto cutoffFreq = nova::clip(cutoff, SampleRateType(0.1f), sampleRate);
-        auto parameter = nt2::exp( - Two<SampleRateType>() * Pi<SampleRateType>() * cutoffFreq * (SampleRateType)sampleDur );
+        typedef decltype(dspContext.sampleRate()) SampleRateType;
+        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.1f), dspContext.sampleRate() * (SampleRateType)(0.5));
+        auto parameter = nt2::exp( - Two<SampleRateType>() * Pi<SampleRateType>() * cutoffFreq * (SampleRateType)dspContext.sampleDur() );
 
-        return parameter;
+        return ParameterState{ parameter };
     }
 
 
@@ -67,11 +74,11 @@ struct LeakDC
     template < typename InputFunctor, typename OutputFunctor >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count )
     {
-        run( in, out, count, getA() );
+        run( in, out, count, getState() );
     }
 
-    template < typename InputFunctor, typename OutputFunctor, typename A >
-    inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, A && a )
+    template < typename InputFunctor, typename OutputFunctor, typename State >
+    inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
         SampleType    y_1 = _y_1;
         SampleType    x_1 = _x_1;
@@ -81,11 +88,11 @@ struct LeakDC
 
         for (size_t i = 0; i != unroll4; ++i) {
             SampleType x0   = in();
-            SampleType y0 = tick(x0, x_1, y_1, a());
+            SampleType y0 = tick(x0, x_1, y_1, a()[0]);
 
 
             SampleType x1 = in();
-            SampleType y1 = tick(x1, x_1, y_1, a());
+            SampleType y1 = tick(x1, x_1, y_1, a()[0]);
 
             out(y0);
             out(y1);
@@ -93,7 +100,7 @@ struct LeakDC
 
         for (size_t i = 0; i != remain; ++i) {
             SampleType x = in();
-            SampleType y = tick(x, x_1, y_1, a());
+            SampleType y = tick(x, x_1, y_1, a()[0]);
 
             out(y);
         }
@@ -111,7 +118,7 @@ struct LeakDC
     }
 
 private:
-    ParameterType _a;
+    ParameterState _state;
     SampleType _x_1 = {0};
     SampleType _y_1 = {0};
 };

@@ -102,51 +102,19 @@ struct QParameter<slope, InternalType>
 };
 
 
-template <int ArgType, typename InternalType>
-struct HPFParameter
-{};
-
-
-template <typename InternalType>
-struct HPFParameter<scalar, InternalType>
-{
-    HPFParameter(InternalType a, InternalType b):
-        a_(a), b_(b)
-    {}
-
-    auto getParameters()
-    {
-        return std::make_tuple( a_, b_ );
-    }
-
-    InternalType a_, b_;
-};
-
-template <typename InternalType>
-struct HPFParameter<slope, InternalType>
-{
-    HPFParameter(InternalType a, InternalType aSlope, InternalType b, InternalType bSlope):
-        a_(a), b_(b), aSlope(aSlope), bSlope(bSlope)
-    {}
-
-    auto getParameters()
-    {
-        auto ret = std::make_tuple( a_, b_ );
-        a_ += aSlope;
-        b_ += bSlope;
-        return ret;
-    }
-
-    InternalType a_, b_;
-    InternalType aSlope, bSlope;
-};
-
-
 
 // TODO: add some oversampling
 template <size_t Channels, bool hasScalarArguments>
 struct DiodeLadderFilter:
-    public NovaUnit
+    public NovaUnit,
+    public nova::multichannel::SignalInput< DiodeLadderFilter<Channels, hasScalarArguments>, 0, Channels >,
+    public nova::multichannel::OutputSink<  DiodeLadderFilter<Channels, hasScalarArguments>, 0, Channels >,
+
+
+    // Controls:
+    public nova::multichannel::ControlInput<  DiodeLadderFilter<Channels, hasScalarArguments>, Channels,                                           (hasScalarArguments ? 1 : Channels) >,
+    public nova::multichannel::ControlInput<  DiodeLadderFilter<Channels, hasScalarArguments>, Channels + (hasScalarArguments ? 1 : Channels) * 1, (hasScalarArguments ? 1 : Channels) >,
+    public nova::multichannel::ControlInput<  DiodeLadderFilter<Channels, hasScalarArguments>, Channels + (hasScalarArguments ? 1 : Channels) * 2, (hasScalarArguments ? 1 : Channels) >
 {
     static const size_t numberOfChannels    = Channels;
     static const size_t parameterInputSize  = hasScalarArguments ? 1 : Channels;
@@ -155,23 +123,26 @@ struct DiodeLadderFilter:
     typedef typename nova::as_pack<double, numberOfChannels>::type   InternalType;
     typedef typename nova::as_pack<double, parameterInputSize>::type InternalParameterType;
 
-    typedef nova::InputInterleaver<parameterInputSize> ParameterReader;
-
-
     static const size_t freqInputIndex = numberOfChannels;
     static const size_t qInputIndex    = freqInputIndex   + parameterInputSize;
     static const size_t hpfInputIndex  = qInputIndex      + parameterInputSize;
 
+    using SignalInput = nova::multichannel::SignalInput< DiodeLadderFilter<Channels, hasScalarArguments>, 0, Channels >;
+    using OutputSink  = nova::multichannel::OutputSink<  DiodeLadderFilter<Channels, hasScalarArguments>, 0, Channels >;
+
+    using FreqInput = nova::multichannel::ControlInput<  DiodeLadderFilter<Channels, hasScalarArguments>, Channels,                                           (hasScalarArguments ? 1 : Channels) >;
+    using QInput    = nova::multichannel::ControlInput<  DiodeLadderFilter<Channels, hasScalarArguments>, Channels + (hasScalarArguments ? 1 : Channels) * 1, (hasScalarArguments ? 1 : Channels) >;
+    using HPFInput  = nova::multichannel::ControlInput<  DiodeLadderFilter<Channels, hasScalarArguments>, Channels + (hasScalarArguments ? 1 : Channels) * 2, (hasScalarArguments ? 1 : Channels) >;
+
+
 public:
     DiodeLadderFilter()
     {
-        _freq            = nova::Interleaver< ParameterType, freqInputIndex >(this)();
-        ParameterType newQ        = nova::Interleaver< ParameterType, qInputIndex    >(this)();
-        ParameterType newHPCutoff = nova::Interleaver< ParameterType, hpfInputIndex  >(this)();
+        ParameterType newQ        = QInput::readInput();
+        ParameterType newHPCutoff = HPFInput::readInput();
         set_q(newQ);
 
         setFeedbackHPF(newHPCutoff * sampleDur());
-        _hpCutoff = newHPCutoff;
 
         const auto freqRate = inRate(freqInputIndex, freqInputIndex + parameterInputSize);
         const auto qRate    = inRate(qInputIndex,    qInputIndex    + parameterInputSize);
@@ -234,7 +205,7 @@ public:
 
 private:
     template <bool AudioRateFrequency, typename QParam, typename HPFParam>
-    void next_(int inNumSamples, QParam & __restrict__ qParameter, HPFParam & __restrict__ hpfParam)
+    void next_(int inNumSamples, QParam && __restrict__ qParameter, HPFParam && __restrict__ hpfParam)
     {
         if (AudioRateFrequency)
             next_a(inNumSamples, qParameter, hpfParam);
@@ -254,19 +225,15 @@ private:
         }
 
         default: {
-            ParameterType newQ = ParameterReader::read(this, qInputIndex );
-            newQ = nova::clip(newQ, Zero<ParameterType>(), One<ParameterType>());
+            if ( QInput::changed() ) {
+                ParameterType newQ = nova::clip( QInput::readAndUpdateInput(), Zero<ParameterType>(), One<ParameterType>() );
 
-            auto qConstant = compare_equal( newQ, _q );
-
-            if (!qConstant) {
                 InternalParameterType oldA = m_A, oldk = m_k;
                 InternalParameterType newA, newk;
 
                 update_kA(newQ, newk, newA);
                 m_A = newA;
                 m_k = newk;
-                _q = newQ;
 
                 InternalParameterType kSlope = calcSlope(newk, oldk);
                 InternalParameterType ASlope = calcSlope(newA, oldA);
@@ -283,89 +250,84 @@ private:
     }
 
     template <bool AudioRateFrequency, int HPFRate, typename QParam>
-    void next_selectHPF(int inNumSamples, QParam & __restrict__ qParam)
+    void next_selectHPF(int inNumSamples, QParam && __restrict__ qParam)
     {
         using namespace boost::simd;
 
         switch (HPFRate) {
         case calc_ScalarRate: {
-            HPFParameter<scalar, InternalParameterType> hpfParam(m_ah, m_bh);
-            next_<AudioRateFrequency>(inNumSamples, qParam, hpfParam);
+            next_<AudioRateFrequency>(inNumSamples, qParam, makeHPFScalarParm());
             return;
         }
 
         default: {
-            ParameterType newHPCutoff = ParameterReader::read(this, hpfInputIndex );
-
-            auto hpfConstant = compare_equal( newHPCutoff, _hpCutoff );
-
-            if (!hpfConstant) {
+            if ( HPFInput::changed() ) {
                 InternalParameterType oldA = m_ah, oldB = m_bh;
                 InternalParameterType newA, newB;
-                InternalParameterType fc = newHPCutoff * sampleDur();
+                InternalParameterType fc = HPFInput::readAndUpdateInput() * sampleDur();
 
                 feedbackHPF(fc, newA, newB);
                 m_ah = newA;
                 m_bh = newB;
-                _hpCutoff = newHPCutoff;
 
                 InternalParameterType slopeA = calcSlope(newA, oldA);
                 InternalParameterType slopeB = calcSlope(newB, oldB);
 
-                HPFParameter<slope, InternalParameterType> hpfParam(oldA, slopeA, oldB, slopeB);
+                auto currentState = std::make_tuple(   oldA,   oldB );
+                auto slope        = std::make_tuple( slopeA, slopeB );
+
+                auto hpfParam = [=] () mutable {
+                    auto ret = currentState;
+                    using std::get;
+                    get<0>(currentState) += get<0>(slope);
+                    get<1>(currentState) += get<1>(slope);
+
+                    return ret;
+                };
+
                 next_<AudioRateFrequency>(inNumSamples, qParam, hpfParam);
             } else {
-                HPFParameter<scalar, InternalParameterType> hpfParam(m_ah, m_bh);
-                next_<AudioRateFrequency>(inNumSamples, qParam, hpfParam);
+                next_<AudioRateFrequency>(inNumSamples, qParam, makeHPFScalarParm() );
             }
         }
         }
     }
 
     template <typename QParam, typename HPFParam>
-    void next_k(int inNumSamples, QParam & __restrict__ qParameter, HPFParam & __restrict__ hpfParam)
+    void next_k(int inNumSamples, QParam && __restrict__ qParameter, HPFParam && __restrict__ hpfParam)
     {
         InternalParameterType a, a_inv, a2, b, b2, c, g, g0;
 
-        nova::Interleaver<InternalType>  inSig( this );
-        nova::Interleaver<ParameterType, freqInputIndex> inFreq( this );
-        ParameterType newFreq = inFreq();
+        auto inSig   = SignalInput::template makeInputSignal<InternalType>();
+        auto outSink = OutputSink ::template makeSink<InternalType>();
 
-        nova::Deinterleaver<InternalType> outSig( this );
-
-        auto freqConstant = boost::simd::compare_equal( newFreq, _freq );
-
-        if (freqConstant) {
-            calcFilterCoefficients(_freq, a, a2, a_inv, b, b2, c, g, g0);
+        if ( !FreqInput::changed() ) {
+            calcFilterCoefficients( FreqInput::readInput(), a, a2, a_inv, b, b2, c, g, g0);
 
             loop(inNumSamples, [&] {
                 InternalType x = inSig();
 
                 auto out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
-                outSig( out );
+                outSink( out );
             });
         } else {
-            ParameterType oldfreq = _freq;
-            ParameterType freqSlope = calcSlope(newFreq, oldfreq);
-            _freq = newFreq;
+            auto freq = FreqInput::template makeSlopeSignal<ParameterType>();
 
             loop(inNumSamples, [&] {
                 InternalType x = inSig();
-                calcFilterCoefficients(oldfreq, a, a2, a_inv, b, b2, c, g, g0);
-                oldfreq += freqSlope;
-
+                calcFilterCoefficients(freq(), a, a2, a_inv, b, b2, c, g, g0);
                 auto out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
-                outSig( out );
+                outSink( out );
             });
         }
     }
 
     template <typename QParam, typename HPFParam>
-    void next_a(int inNumSamples, QParam & __restrict__ qParameter, HPFParam & __restrict__ hpfParam)
+    void next_a(int inNumSamples, QParam && __restrict__ qParameter, HPFParam && __restrict__ hpfParam)
     {
-        nova::Interleaver<InternalType>                  inSig( this );
-        nova::Interleaver<ParameterType, freqInputIndex> inFreq( this );
-        nova::Deinterleaver<InternalType>                outSig( this );
+        auto inSig   = SignalInput::template makeInputSignal<InternalType>();
+        auto inFreq  = FreqInput  ::template makeAudioInputSignal<ParameterType>();
+        auto outSink = OutputSink ::template makeSink<InternalType>();
 
         for (int i = 0; i != inNumSamples; ++i) {
             ParameterType freq = inFreq();
@@ -375,7 +337,7 @@ private:
 
             InternalType x = inSig();
             InternalType out = tick(x, a, a2, a_inv, b, b2, c, g, g0, qParameter, hpfParam);
-            outSig(out);
+            outSink(out);
         }
     }
 
@@ -383,7 +345,7 @@ private:
     InternalType tick(InternalType x, InternalParameterType a, InternalParameterType a2, InternalParameterType ainv,
                       InternalParameterType b, InternalParameterType b2,
                       InternalParameterType c, InternalParameterType g, InternalParameterType g0,
-                      QParam & __restrict__ qParameter, HPFParam & __restrict__ hpfParam)
+                      QParam && __restrict__ qParameter, HPFParam && __restrict__ hpfParam)
     {
         using namespace boost::simd;
 
@@ -391,7 +353,7 @@ private:
         std::tie(k, A) = qParameter.getParameters();
 
         InternalParameterType ah, bh;
-        std::tie(ah, bh) = hpfParam.getParameters();
+        std::tie(ah, bh) = hpfParam();
         auto two = boost::simd::Two<InternalParameterType>();
 
         // current state
@@ -488,7 +450,7 @@ private:
     void set_q(InternalParameterType q_)
     {
         using namespace boost::simd;
-        _q = nova::clip(q_, Zero<InternalParameterType>(), One<InternalParameterType>());
+        q_ = nova::clip(q_, Zero<InternalParameterType>(), One<InternalParameterType>());
         update_kA(q_, m_k, m_A);
     }
 
@@ -504,7 +466,10 @@ private:
         return fast_div (sample, One<InternalType>() + abs(sample) );
     }
 
-    ParameterType _freq, _q, _hpCutoff;
+
+    auto makeHPFScalarParm() { return  [=] { return std::make_tuple( m_ah, m_bh ); }; }
+
+
     InternalParameterType m_k, m_A;
     InternalType z[5] = { {0}, {0}, {0}, {0}, {0} };
     InternalParameterType m_ah, m_bh;

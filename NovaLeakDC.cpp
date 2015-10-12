@@ -52,14 +52,10 @@ struct NovaLeakDC:
 
     typedef nova::multichannel::OutputSink<  NovaLeakDC<NumberOfChannels>, 0, NumberOfChannels > OutputSink;
 
-    NovaLeakDC()
+    NovaLeakDC():
+        _filter( computeState(FreqInput::readInput()),
+                 InputSignal::template readInputs<vDouble>() )
     {
-        auto cutOff = FreqInput::readInput();
-        initFilter( cutOff );
-
-        auto inFn = InputSignal::template makeInputSignal<vDouble>();
-        _filter.set_x1( inFn() );
-
         switch (inRate(IndexOfCoefficient))
         {
         case calc_ScalarRate:
@@ -76,14 +72,9 @@ struct NovaLeakDC:
         }
     }
 
-    void initFilter(float cutoffFreq)
+    auto computeState ( float cutoffFreq )
     {
-        _filter.set_a( designFilter(cutoffFreq) );
-    }
-
-    float designFilter ( float cutoffFreq )
-    {
-        return Filter::computeAForCutoff( cutoffFreq, (float)sampleRate(), (float)sampleDur() );
+        return Filter::computeState( cutoffFreq, makeDSPContext() );
     }
 
     void next_a(int inNumSamples)
@@ -94,7 +85,7 @@ struct NovaLeakDC:
 
         auto parameterFunctor = [=] () mutable {
             auto freq = freqInFunc();
-            return designFilter( freq );
+            return computeState( freq );
         };
 
         _filter.run(inFn, outFn, inNumSamples, parameterFunctor );
@@ -111,13 +102,15 @@ struct NovaLeakDC:
     void next_k(int inNumSamples)
     {
         if ( FreqInput::changed() ) {
-            float oldA = _filter.getA()();
-            float newA = designFilter( FreqInput::readInput() );
+            auto currentState = _filter.currentState();
+            auto newState     = computeState( FreqInput::readInput() );
+            _filter.setState( newState );
+
+            auto state = parameter::makeSlope( currentState, newState, (float)this->mRate->mSlopeFactor );
+
             auto inFn  = InputSignal::template makeInputSignal<vDouble>();
             auto outFn = OutputSink:: template makeSink<vDouble>();
-
-            _filter.run(inFn, outFn, inNumSamples, makeSlope(oldA, newA) );
-            _filter.set_a( newA );
+            _filter.run(inFn, outFn, inNumSamples, state );
         } else {
             next_i(inNumSamples);
         }

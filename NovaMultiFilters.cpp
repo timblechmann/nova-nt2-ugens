@@ -38,7 +38,7 @@
 #include <nt2/include/functions/tan.hpp>
 
 
-#include "dsp/utils.hpp"
+#include <dsp/utils.hpp>
 
 #include <cmath>
 
@@ -59,24 +59,9 @@ struct NovaIntegrator:
 {
 	typedef NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
 
-	typedef Integrator<typename Base::SampleType, typename Base::ParameterDSPType> Filter;
-
-	struct DSPEngine:
-		Filter
-	{
-		template <typename T>
-		void setParameter( T const & t ) { Filter::_a = t; }
-
-		auto getParameter() { return Filter::_a; }
-	};
+	typedef Integrator<typename Base::SampleType, typename Base::ParameterDSPType> DSPEngine;
 
     NovaIntegrator() = default;
-
-	template <typename AType>
-	static auto checkParameter(AType const & a)
-	{
-		return Filter::checkParameter(a);
-	}
 
 	static DSPEngine & getDSPEngine( NovaIntegrator * self )
 	{
@@ -114,13 +99,17 @@ struct BiquadParameterStruct
 
 template <typename FilterDesigner, size_t Size, bool ScalarArguments = true>
 struct NovaBiquadBase:
-	public NovaUnit
+	public NovaUnit,
+    public nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >,
+    public nova::multichannel::OutputSink<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >,
+
+    // Controls:
+    public nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size,                                (ScalarArguments ? 1 : Size) >,
+    public nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size + (ScalarArguments ? 1 : Size), (ScalarArguments ? 1 : Size) >
 {
     static const size_t ParameterSize = ScalarArguments ? 1 : Size;
     static const int FreqInputIndex = Size;
     static const int QInputIndex    = Size + ParameterSize;
-
-	typedef nova::InputInterleaver<ParameterSize> ParameterReader;
 
 	typedef typename nova::as_pack<float,  Size>::type vFloat;
 	typedef typename nova::as_pack<double, Size>::type vDouble;
@@ -130,6 +119,13 @@ struct NovaBiquadBase:
 
     typedef typename FilterDesigner::template makeParameter<ParameterType>::type BiquadParameterStruct;
     typedef nova::Biquad<vDouble, BiquadParameterStruct> Filter;
+
+    using SignalInput = nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >;
+    using OutputSink  = nova::multichannel::OutputSink<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >;
+
+    using FreqInput = nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size,                                ScalarArguments ? 1 : Size >;
+    using QInput    = nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size + (ScalarArguments ? 1 : Size), ScalarArguments ? 1 : Size >;
+
 
     NovaBiquadBase()
     {
@@ -143,11 +139,9 @@ struct NovaBiquadBase:
 
     void initFilter()
     {
-        auto newFreq = ParameterReader::read(this, FreqInputIndex);
-        auto newQ    = ParameterReader::read(this, QInputIndex);
+        auto newFreq = FreqInput::readInput();
+        auto newQ    = QInput::readInput();
 
-        _freqArg = newFreq;
-        _qArg    = newQ;
         HostParameterType normalizedFreq = newFreq * (float)sampleDur();
         auto params = FilterDesigner::template designFilter<BiquadParameterStruct>( normalizedFreq, newQ );
 
@@ -156,37 +150,30 @@ struct NovaBiquadBase:
 
     void next_1(int)
     {
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto outFn = nova::Deinterleaver<vDouble>(this);
+        auto inFn  = SignalInput::template makeInputSignal<vDouble>();
+        auto outFn = OutputSink ::template makeSink<vDouble>();
 
         _filter.run(inFn, outFn, 1);
     }
 
     void next_i(int)
     {
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto outFn = nova::Deinterleaver<vDouble>(this);
+        auto inFn  = SignalInput::template makeInputSignal<vDouble>();
+        auto outFn = OutputSink ::template makeSink<vDouble>();
 
         _filter.run_unrolled(inFn, outFn, mRate->mFilterLoops, mRate->mFilterRemain);
     }
 
     void next_k(int inNumSamples)
     {
-        using namespace boost::simd;
+        auto newFreq = FreqInput::readInput();
+        auto newQ    = QInput   ::readInput();
 
-        HostParameterType newFreq = ParameterReader::read(this, FreqInputIndex);
-        HostParameterType newQ    = ParameterReader::read(this, QInputIndex);
-
-        logical<float> freqConstant = compare_equal(newFreq, _freqArg);
-        logical<float> qConstant    = compare_equal(newQ,    _qArg);
-
-        if ( freqConstant && qConstant ) {
+        if ( !FreqInput::changed() && !QInput::changed() ) {
             next_i(inNumSamples);
             return;
         }
 
-        _freqArg = newFreq;
-        _qArg    = newQ;
         HostParameterType normalizedFreq = newFreq * (float)sampleDur();
         auto newParameters = FilterDesigner::template designFilter<BiquadParameterStruct>( normalizedFreq, newQ );
 
@@ -196,8 +183,8 @@ struct NovaBiquadBase:
         ParameterType b1Slope = calcSlope( newParameters.b1(), _filter._parameters.b1() );
         ParameterType b2Slope = calcSlope( newParameters.b2(), _filter._parameters.b2() );
 
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto outFn = nova::Deinterleaver<vDouble>(this);
+        auto inFn  = SignalInput::template makeInputSignal<vDouble>();
+        auto outFn = OutputSink ::template makeSink<vDouble>();
 
         _filter.run_unrolled(inFn, outFn, mRate->mFilterLoops, mRate->mFilterRemain,
                              a0Slope, a1Slope, a2Slope, b1Slope, b2Slope );
@@ -209,136 +196,10 @@ struct NovaBiquadBase:
         _filter._parameters = parameters;
     }
 
-    HostParameterType _freqArg, _qArg;
     Filter _filter;
 };
 
 
-#if 0
-template <typename FilterDesigner, bool ScalarArguments = true>
-struct NovaBiquad4thOrder:
-        public SCUnit
-{
-    static const size_t size = 2;
-
-    static const size_t ParameterSize = ScalarArguments ? 1 : size;
-    static const int FreqInputIndex = size;
-    static const int QInputIndex    = size + ParameterSize;
-
-    typedef InputInterleaver<ParameterSize> ParameterReader;
-
-    typedef boost::simd::pack<float,  size> vFloat;
-    typedef boost::simd::pack<double, size> vDouble;
-
-    typedef typename boost::mpl::if_c<ScalarArguments, double, vDouble>::type ParameterType;
-    typedef typename boost::mpl::if_c<ScalarArguments, float,  vFloat>::type HostParameterType;
-
-    typedef nova::Biquad<vDouble, ParameterType> Filter;
-    typedef BiquadParameterStruct<ParameterType> BiquadParameter;
-
-    NovaBiquad4thOrder()
-    {
-        initFilter();
-
-        bool isScalarRate = true;
-        for ( size_t index = size; index != (size + 2 * ParameterSize); ++index) {
-            if (inRate(index) != calc_ScalarRate) {
-                isScalarRate = false;
-                break;
-            }
-        }
-
-        if (isScalarRate)
-            set_vector_calc_function<NovaBiquad4thOrder, &NovaBiquad4thOrder::next_i, &NovaBiquad4thOrder::next_1>();
-        else
-            set_vector_calc_function<NovaBiquad4thOrder, &NovaBiquad4thOrder::next_k, &NovaBiquad4thOrder::next_1>();
-    }
-
-    void initFilter()
-    {
-        auto newFreq = ParameterReader::read(this, FreqInputIndex);
-        auto newQ    = ParameterReader::read(this, QInputIndex);
-
-        _freqArg = newFreq;
-        _qArg    = newQ;
-        auto params = FilterDesigner::template designFilter<BiquadParameter>( newFreq * (float)sampleDur(), newQ );
-        storeFilterParameters( params );
-    }
-
-    void next_1(int)
-    {
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto wire  = nova::Wire<vDouble>();
-        auto outFn = nova::Deinterleaver<vDouble>(this);
-
-        _filter0.run(inFn, wire, 1);
-        _filter1.run(wire, outFn, 1);
-    }
-
-    void next_i(int)
-    {
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto wire  = nova::Wire<vDouble>();
-        auto outFn = nova::Deinterleaver<vDouble>(this);
-
-        _filter0.run_unrolled(inFn, wire, mRate->mFilterLoops, mRate->mFilterRemain);
-        _filter1.run_unrolled(wire, outFn, mRate->mFilterLoops, mRate->mFilterRemain);
-    }
-
-    void next_k(int inNumSamples)
-    {
-        using namespace boost::simd;
-
-        HostParameterType newFreq = ParameterReader::read(this, FreqInputIndex);
-        HostParameterType newQ    = ParameterReader::read(this, QInputIndex);
-
-        logical<float> freqConstant = compare_equal(newFreq, _freqArg);
-        logical<float> qConstant    = compare_equal(newQ,    _qArg);
-
-        if ( freqConstant && qConstant ) {
-            next_i(inNumSamples);
-            return;
-        }
-
-        _freqArg = newFreq;
-        _qArg    = newQ;
-        BiquadParameter newParameters = FilterDesigner::template designFilter<BiquadParameter>( newFreq * (float)sampleDur(), newQ );
-
-        auto a0Slope = calcSlope( newParameters.a0, _filter0._a0 );
-        auto a1Slope = calcSlope( newParameters.a1, _filter0._a1 );
-        auto a2Slope = calcSlope( newParameters.a2, _filter0._a2 );
-        auto b1Slope = calcSlope( newParameters.b1, _filter0._b1 );
-        auto b2Slope = calcSlope( newParameters.b2, _filter0._b2 );
-
-        auto inFn  = nova::Interleaver<vDouble>(this);
-        auto wire  = nova::Wire<vDouble>();
-        auto outFn = nova::Deinterleaver<vDouble>(this);
-
-        _filter0.run_unrolled(inFn, wire, mRate->mFilterLoops, mRate->mFilterRemain,
-                              a0Slope, a1Slope, a2Slope, b1Slope, b2Slope );
-        _filter1.run_unrolled(wire, outFn, mRate->mFilterLoops, mRate->mFilterRemain,
-                              a0Slope, a1Slope, a2Slope, b1Slope, b2Slope );
-        storeFilterParameters( newParameters );
-    }
-
-    void storeFilterParameters(BiquadParameter const & parameters)
-    {
-        _filter0._a0 = parameters.a0;
-        _filter0._a1 = parameters.a1;
-        _filter0._a2 = parameters.a2;
-        _filter0._b1 = parameters.b1;
-        _filter0._b2 = parameters.b2;
-        _filter1._a0 = parameters.a0;
-        _filter1._a1 = parameters.a1;
-        _filter1._a2 = parameters.a2;
-        _filter1._b1 = parameters.b1;
-        _filter1._b2 = parameters.b2;
-    }
-
-    HostParameterType _freqArg, _qArg;
-    Filter _filter0, _filter1;
-};
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -640,49 +501,14 @@ struct DesignAPF
 DEFINED_2ND_ORDER_FILTERS(1)
 DEFINED_2ND_ORDER_FILTERS(2)
 DEFINED_2ND_ORDER_FILTERS(4)
-DEFINED_2ND_ORDER_FILTERS(8)
+//DEFINED_2ND_ORDER_FILTERS(8)
 
-#if 0
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 4nd order, 2-channel
-
-struct NovaLowPass2_4th:
-    NovaBiquad4thOrder<DesignLPF>
-{
-        NovaLowPass2_4th() {}
-};
-
-struct NovaHighPass2_4th:
-        NovaBiquad4thOrder<DesignHPF>
-{
-    NovaHighPass2_4th() {}
-};
-
-struct NovaBandPass2_4th:
-        NovaBiquad4thOrder<DesignBPF>
-{
-    NovaBandPass2_4th() {}
-};
-
-struct NovaBandReject2_4th:
-        NovaBiquad4thOrder<DesignBRF>
-{
-    NovaBandReject2_4th() {}
-};
-
-struct NovaAllPass2_4th:
-        NovaBiquad4thOrder<DesignAPF>
-{
-    NovaAllPass2_4th() {}
-};
-
-#endif
 
 
 DEFINE_XTORS(NovaIntegrator1)
 DEFINE_XTORS(NovaIntegrator2)
 DEFINE_XTORS(NovaIntegrator4)
-DEFINE_XTORS(NovaIntegrator8)
+//DEFINE_XTORS(NovaIntegrator8)
 
 
 PluginLoad(NovaFilters)
@@ -692,7 +518,7 @@ PluginLoad(NovaFilters)
     DefineSimpleUnit(NovaIntegrator1);
     DefineSimpleUnit(NovaIntegrator2);
     DefineSimpleUnit(NovaIntegrator4);
-    DefineSimpleUnit(NovaIntegrator8);
+//    DefineSimpleUnit(NovaIntegrator8);
 
 #define REGISTER_BIQUADS(Chans)                         \
     DefineSimpleUnit(NovaLowPass##Chans);               \
@@ -710,5 +536,5 @@ PluginLoad(NovaFilters)
     REGISTER_BIQUADS(1);
     REGISTER_BIQUADS(2);
     REGISTER_BIQUADS(4);
-    REGISTER_BIQUADS(8);
+//    REGISTER_BIQUADS(8);
 }

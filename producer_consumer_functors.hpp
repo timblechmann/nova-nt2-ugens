@@ -31,6 +31,8 @@
 #include <boost/simd/include/functions/splat.hpp>
 #include "boost/simd/include/functions/split.hpp"
 
+#include "boost/simd/include/functions/compare_equal.hpp"
+
 
 #include "boost/simd/operator/include/functions/plus.hpp"
 #include "boost/simd/operator/include/functions/multiplies.hpp"
@@ -40,6 +42,8 @@
 #include "boost/simd/sdk/meta/cardinal_of.hpp"
 
 namespace nova {
+
+namespace detail {
 
 template <int N>
 struct packGenerator
@@ -51,8 +55,7 @@ struct packGenerator<1>
     template <typename Result, typename Functor>
     static Result generate(Functor && f)
     {
-        Result ret = f();
-        return ret;
+        return Result( f() );
     }
 };
 
@@ -103,145 +106,7 @@ struct packGenerator<8>
     }
 };
 
-
-template <typename OutputType, size_t StartIndex = 0, class Enable = void>
-struct Interleaver
-{
-    static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
-
-    Interleaver(SCUnit * unit):
-        unit(unit)
-    {}
-
-    BOOST_FORCEINLINE OutputType operator() ()
-    {
-        //		OutputType ret;
-        //		for (size_t i = 0; i != N; ++i)
-        //			boost::simd::insert(unit->in( StartIndex + i )[cnt], ret, i);
-
-        size_t i = 0;
-        OutputType ret = packGenerator<N>::template generate<OutputType>([&](){
-            return unit->in( StartIndex + i++ )[cnt];
-        });
-
-        cnt += 1;
-        return ret;
-    }
-
-
-    SCUnit * unit;
-    size_t cnt = 0;
-};
-
-template <typename OutputType, size_t StartIndex>
-struct Interleaver<OutputType, StartIndex, std::enable_if<std::is_scalar<OutputType>::value>>
-{
-    Interleaver(SCUnit * unit):
-        unit(unit)
-    {}
-
-    BOOST_FORCEINLINE OutputType operator() ()
-    {
-        return unit->in( StartIndex )[cnt++];
-    }
-
-
-    SCUnit * unit;
-    size_t cnt = 0;
-};
-
-template <typename OutputType>
-struct Deinterleaver
-{
-    static const size_t N = boost::simd::meta::cardinal_of<OutputType>::value;
-
-    Deinterleaver(SCUnit * unit):
-        unit(unit)
-    {}
-
-    BOOST_FORCEINLINE void operator() (OutputType arg)
-    {
-        for (int i = 0; i != N; ++i) {
-            float * out = unit->out(i);
-            out[cnt] = boost::simd::extract(arg, i);
-        }
-        cnt += 1;
-    }
-
-    SCUnit * unit;
-    size_t cnt = 0;
-};
-
-template <typename OutputType, int Channel>
-struct Packer
-{
-    Packer(SCUnit * unit):
-        ptr(unit->in(Channel))
-    {}
-
-    inline OutputType operator() ()
-    {
-        OutputType ret = boost::simd::aligned_load<OutputType>( ptr + cnt);
-        cnt += boost::simd::meta::cardinal_of<OutputType>::value;
-        return ret;
-    }
-
-    const float * ptr;
-    size_t cnt = 0;
-};
-
-template <typename OutputType, int Channel>
-struct Unpacker
-{
-    Unpacker(SCUnit * unit):
-        ptr(unit->out(Channel))
-    {}
-
-    inline void operator() (OutputType arg)
-    {
-        boost::simd::aligned_store<OutputType>( arg, ptr + cnt );
-        cnt += boost::simd::meta::cardinal_of<OutputType>::value;
-    }
-
-    float * ptr;
-    size_t cnt = 0;
-};
-
-
-template <typename OutputType>
-struct Scalar
-{
-    Scalar(OutputType val):
-        _val(val)
-    {}
-
-    inline OutputType operator() () const
-    {
-        return _val;
-    }
-
-    OutputType _val;
-};
-
-
-template <typename OutputType>
-struct Ramp
-{
-    Ramp(OutputType val, OutputType increment):
-        _val(val), _increment(increment)
-    {}
-
-    inline OutputType operator() ()
-    {
-        OutputType ret = _val;
-        _val += _increment;
-        return _val;
-    }
-
-    OutputType _val;
-    OutputType _increment;
-};
-
+}
 
 template <typename OutputType, typename Scalar>
 auto makeRamp( Scalar base, Scalar slope )
@@ -259,9 +124,13 @@ auto makeRamp( Scalar base, Scalar slope )
         insert(base, val, i);
     }
 
+    OutputType state = base;
     OutputType increment = slope * size;
 
-    return Ramp<OutputType>(val, increment);
+    return [=] () mutable {
+        state += increment;
+        return state;
+    };
 }
 
 template <typename SampleType>
@@ -281,22 +150,6 @@ struct Wire
 };
 
 
-template <size_t N>
-struct InputInterleaver
-{
-    typedef typename as_pack<float, N>::type HostParameterType;
-
-    inline static HostParameterType read( SCUnit * unit, size_t index )
-    {
-        HostParameterType ret;
-
-        for (size_t i = 0; i != N; ++i) {
-            float input = unit->in0(index + i);
-            boost::simd::insert(input, ret, i);
-        }
-        return ret;
-    }
-};
 
 namespace detail {
 
@@ -342,13 +195,13 @@ struct SlopedInput:
     template <typename SIMDType,
               typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
                                        >::type * = nullptr>
-    auto makeInputSignal( int numberOfSamples )
+    auto makeRampSignal()
     {
         using ScalarType = typename boost::simd::meta::scalar_of<SIMDType>::type;
 
         ScalarType current = mState;
         ScalarType next  = readInput();
-        ScalarType slope = (next - current) / ScalarType( numberOfSamples );
+        ScalarType slope = (next - current) * ScalarType( static_cast<UGenClass*>(this)->mRate->mSlopeFactor );
         mState = next;
         return makeRamp<SIMDType>( current, slope );
     }
@@ -356,11 +209,11 @@ struct SlopedInput:
     template <typename ScalarType,
               typename std::enable_if< boost::dispatch::meta::is_scalar<ScalarType>::value
                                        >::type * = nullptr>
-    auto makeInputSignal( int numberOfSamples )
+    auto makeRampSignal()
     {
         ScalarType current = mState;
         ScalarType next  = readInput();
-        ScalarType slope = (next - current) / ScalarType( numberOfSamples );
+        ScalarType slope = (next - current) * ScalarType( static_cast<UGenClass*>(this)->mRate->mSlopeFactor );
         mState = next;
         return makeRamp<ScalarType>( current, slope );
     }
@@ -432,9 +285,9 @@ struct ControlInput:
 
     /* control rate input */
     template <typename OutputType>
-    auto makeSmoothedInputSignal( int numberOfSamples )
+    auto makeRampSignal()
     {
-        return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeInputSignal<OutputType>( numberOfSamples );
+        return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeRampSignal<OutputType>();
     }
 
     /* scalar input */
@@ -488,12 +341,11 @@ struct ScalarInput:
     template< typename OutputType >
     auto readInputs()
     {
-        using pack = boost::simd::pack<OutputType, NumberOfChannels>;
-
-        return packGenerator<NumberOfChannels>::template generate<pack>( [this, index = 0] () mutable {
+        return detail::packGenerator<NumberOfChannels>::template generate<OutputType>( [this, index = 0] () mutable {
              return InputFunctor::operator ()( static_cast<UGenClass*>(this)->in0( InputIndex + index++ ) );
         });
     }
+
 
     template< typename OutputType >
     auto makeInputSignal()
@@ -501,6 +353,68 @@ struct ScalarInput:
         OutputType inputSignal = readInputs<OutputType>();
         return [=] { return inputSignal; };
     }
+};
+
+template <typename UGenClass, size_t InputIndex,  size_t NumberOfChannels, typename InputFunctor = detail::Identity >
+struct SlopedInput:
+    ScalarInput< UGenClass, InputIndex, NumberOfChannels,  InputFunctor >
+{
+    using Vector = typename nova::as_pack<float, NumberOfChannels>::type;
+
+    SlopedInput():
+        mState( readInput() )
+    {}
+
+    auto readInput()
+    {
+        return ScalarInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template readInputs<Vector>();
+    }
+
+    auto readAndUpdateInput()
+    {
+        updateState();
+        return mState;
+    }
+
+    auto readSlopeFactor()
+    {
+        return boost::simd::splat<Vector>( static_cast<UGenClass*>(this)->mRate->mSlopeFactor );
+    }
+
+    auto currentValue()
+    {
+        return mState;
+    }
+
+    template< typename OutputType >
+    auto makeRampSignal( )
+    {
+        Vector current = mState;
+        Vector next  = readInput();
+        Vector slope = (next - current) * readSlopeFactor();
+        mState = next;
+        return makeRamp<OutputType>( current, slope );
+    }
+
+    void updateState()
+    {
+        mState = readInput();
+    }
+
+    template< typename OutputType>
+    auto makeScalarInputSignal()
+    {
+        OutputType state { mState };
+        return [=] { return state; };
+    }
+
+    bool changed()
+    {
+        auto inputConstant = boost::simd::compare_equal( mState, readInput() );
+        return !bool(inputConstant);
+    }
+
+    Vector mState;
 };
 
 
@@ -513,10 +427,16 @@ struct SignalInput:
     {
         static_assert( NumberOfChannels == boost::simd::meta::cardinal_of<OutputType>::value, "failed" );
 
-        return packGenerator<NumberOfChannels>::template generate<OutputType>( [=, channelIndex = 0] () mutable {
+        return detail::packGenerator<NumberOfChannels>::template generate<OutputType>( [=, channelIndex = 0] () mutable {
             auto * input = static_cast<UGenClass*>(this)->SCUnit::in( InputIndex + channelIndex++ );
             return InputFunctor::operator ()( input[sampleIndex] );
         });
+    }
+
+    template< typename OutputType >
+    auto readInputs()
+    {
+        return readInputs<OutputType>( 0 );
     }
 
     template< typename OutputType >
@@ -527,6 +447,35 @@ struct SignalInput:
         };
     }
 };
+
+
+template <typename UGenClass, size_t InputIndex, size_t NumberOfChannels, typename InputFunctor = detail::Identity>
+struct ControlInput:
+    SlopedInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>,
+    SignalInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>
+{
+    /* audio rate input */
+    template <typename OutputType>
+    auto makeAudioInputSignal()
+    {
+        return SignalInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>::template makeInputSignal<OutputType>();
+    }
+
+    /* control rate input */
+    template <typename OutputType>
+    auto makeRampSignal()
+    {
+        return SlopedInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template makeRampSignal<OutputType>();
+    }
+
+    /* scalar input */
+    template <typename OutputType>
+    auto makeScalarInputSignal()
+    {
+        return SlopedInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template makeScalarInputSignal<OutputType>();
+    }
+};
+
 
 
 template <typename UGenClass, size_t OutputIndex, size_t NumberOfChannels>
@@ -551,8 +500,47 @@ struct OutputSink
     }
 };
 
-}
+
 
 }
+
+
+///////////////////////////
+///
+/// multichannel parameters
+
+namespace parameter {
+
+template< typename ParameterType, typename SlopeFactor >
+auto makeRamp( ParameterType const & current, ParameterType const & next, SlopeFactor slopeFactor )
+{
+    // this would be nice:
+#if 0
+    ParameterType slopeVector = (next - current) * slopeFactor;
+
+    return [state = current, slope = slopeVector] () mutable {
+        state += slope;
+        return state;
+    };
+#else
+    ParameterType slopeVector;
+    std::transform( next.begin(), next.end(), current.begin(), slopeVector.begin(), [=](auto nextValue, auto currentValue) {
+        return (nextValue - currentValue) * slopeFactor;
+    } );
+
+    return [state = current, slope = slopeVector] () mutable {
+
+        std::transform( state.begin(), state.end(), slope.begin(), state.begin(), [=](auto state, auto slope) {
+            return state + slope;
+        } );
+
+        return state;
+    };
+
+#endif
+}
+
+} // namespace parameter
+} // namespace nova
 
 #endif // PRODUCER_CONSUMER_FUNCTORS_HPP

@@ -34,63 +34,84 @@ namespace nova {
 template <typename SampleType, typename ParameterType>
 struct Integrator
 {
-    Integrator (ParameterType a = ParameterType(0.f)):
-        _a(a)
+    typedef boost::simd::aligned_array<ParameterType, 1, 4> ParameterState;
+
+    enum {
+        stateA
+    };
+
+    Integrator (ParameterState a = ParameterState{0.f}):
+        _state(a)
     {}
 
-    typedef decltype(boost::simd::Zero<ParameterType>()) Zero;
+    // internal state
+    void setState( ParameterState const & newState ) { _state = newState; }
+    auto getState()
+    {
+        auto ret = [=] { return _state; };
+        return ret;
+    }
 
-    template < typename InputFunctor, typename OutputFunctor, typename ASlope = Zero >
-    inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, ASlope aSlope = ASlope() )
+    ParameterState currentState()
+    {
+        return _state;
+    }
+
+    template <typename DSPContext>
+    ParameterState computeState( ParameterType leak, DSPContext const & )
+    {
+        return computeState(leak);
+    }
+
+    ParameterState computeState( ParameterType leak )
+    {
+        auto clippedParameter = clip( leak, boost::simd::Zero<ParameterType>(), boost::simd::One<ParameterType>() );
+        return ParameterState { clippedParameter } ;
+    }
+
+    // dsp
+    template < typename InputFunctor, typename OutputFunctor, typename ParamInput >
+    inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, ParamInput a )
     {
         SampleType    y_1 = _y_1;
-        ParameterType a   = _a;
 
         const size_t unroll2 = count / 2;
         const size_t remain  = count & 1;
 
         for (size_t i = 0; i != unroll2; ++i) {
             SampleType x0 = in();
-            SampleType y0 = tick(x0, y_1, a);
-
-            if (!std::is_same<ASlope, Zero>::value)
-                a += aSlope;
+            SampleType y0 = tick(x0, y_1, a()[stateA]);
 
             SampleType x1 = in();
-            SampleType y1 = tick(x1, y_1, a);
-            a += aSlope;
-            if (!std::is_same<ASlope, Zero>::value)
-                a += aSlope;
+            SampleType y1 = tick(x1, y_1, a()[stateA]);
             out(y0);
             out(y1);
         }
 
         for (size_t i = 0; i != remain; ++i) {
             SampleType x = in();
-            SampleType y = tick(x, y_1, a);
-			if (!std::is_same<ASlope, Zero>::value)
-				a += aSlope;
+            SampleType y = tick(x, y_1, a()[stateA]);
 
             out(y);
         }
 
-        if (!std::is_same<ASlope, Zero>::value)
-            _a = a;
-
         _y_1 = y_1;
     }
 
-	template < typename SigInputFunctor, typename ParamInputFunctor, typename OutputFunctor>
-	inline void run_ar ( SigInputFunctor & sigIn, ParamInputFunctor & paramIn, OutputFunctor & out, size_t count)
+    template < typename InputFunctor, typename OutputFunctor >
+    inline void run ( InputFunctor & in, OutputFunctor & out, size_t count )
+    {
+        run( in, out, count, [=]{ return _state; } );
+    }
+
+	template < typename SigInputFunctor, typename StateInputFunctor, typename OutputFunctor>
+	inline void run_ar ( SigInputFunctor && sigIn, StateInputFunctor && stateIn, OutputFunctor && out, size_t count )
 	{
 		SampleType    y_1 = _y_1;
 		for (size_t i = 0; i != count; ++i)
 		{
 			auto x  = sigIn();
-			auto fb = paramIn();
-
-			auto clippedFB = checkParameter(fb);
-			auto y  = tick(x, y_1, toDouble<ParameterType>( clippedFB ) );
+			auto y  = tick( x, y_1, toDouble<ParameterType>( stateIn()[stateA] ) );
 			out(y);
 		}
 		_y_1 = y_1;
@@ -103,15 +124,9 @@ struct Integrator
         return output;
     }
 
-	template <typename Arg>
-	static auto checkParameter( Arg fb )
-	{
-		return clip( fb, boost::simd::Zero<Arg>(), boost::simd::One<Arg>() );
-	}
 
-
-    ParameterType _a;
 private:
+    ParameterState _state;
     SampleType _y_1 = {0};
 };
 

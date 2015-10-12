@@ -32,6 +32,21 @@ namespace nova {
 struct NovaUnit:
     public SCUnit
 {
+private:
+    struct DSPContext {
+        explicit DSPContext( SCUnit * unit ):
+            _rate(unit->mRate)
+        {}
+
+        auto sampleRate() const { return _rate->mSampleRate; }
+        auto sampleDur()  const { return _rate->mSampleDur;  }
+
+        struct Rate * __restrict__ _rate;
+    };
+
+public:
+    auto makeDSPContext() { return DSPContext(this); }
+
 #if 0
     template <typename FloatType, typename Functor>
     struct ScalarSignal
@@ -175,12 +190,7 @@ struct NovaUnit:
     template <typename FloatTypeA, typename FloatTypeB>
     auto makeSlope(FloatTypeA next, FloatTypeB current) const
     {
-        FloatTypeA increment = calcSlope( next, current );
-        return [=, state = current] () mutable {
-            auto ret = state;
-            state += increment;
-            return ret;
-        };
+        return nova::parameter::makeSlope( current, next, mRate->mSlopeFactor );
     }
 };
 

@@ -34,75 +34,61 @@ namespace nova {
 template <typename SampleType, typename ParameterType>
 struct FeedbackAM
 {
-    FeedbackAM (ParameterType fb = ParameterType(0.f)):
-        _fb(fb)
+    typedef boost::simd::aligned_array<ParameterType, 1, 4> ParameterState;
+
+    enum {
+        stateFB
+    };
+
+    FeedbackAM (ParameterState fb = ParameterState{0.f}):
+        _state(fb)
     {}
 
-    typedef decltype(boost::simd::Zero<ParameterType>()) Zero;
+    // internal state
+    void setState( ParameterState const & newState ) { _state = newState; }
+    auto getState()
+    {
+        auto ret = [=] { return _state; };
+        return ret;
+    }
 
-    template < typename InputFunctor, typename OutputFunctor, typename ASlope = Zero >
-    inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, ASlope fbSlope = ASlope() )
+    ParameterState currentState()
+    {
+        return _state;
+    }
+
+    template <typename DSPContext>
+    ParameterState computeState( ParameterType fb, DSPContext && )
+    {
+        auto clippedParameter = clip( fb, ParameterType(-2.1f), ParameterType(2.1f) );
+        return ParameterState { clippedParameter } ;
+    }
+
+    template < typename InputFunctor, typename OutputFunctor, typename FeedbackFunctor >
+    inline void run ( InputFunctor && in, OutputFunctor && out, size_t count, FeedbackFunctor && state )
     {
         SampleType    y_1 = _y_1;
-        ParameterType fb   = _fb;
 
-#if 0
-        const size_t unroll2 = count / 2;
-        const size_t remain  = count & 1;
-
-        for (size_t i = 0; i != unroll2; ++i) {
-            SampleType x0 = in();
-            SampleType y0 = tick(x0, y_1, fb);
-
-            if (!std::is_same<ASlope, Zero>::value)
-                fb += fbSlope;
-
-            SampleType x1 = in();
-            SampleType y1 = tick(x1, y_1, fb);
-            fb += fbSlope;
-            if (!std::is_same<ASlope, Zero>::value)
-                fb += fbSlope;
-            out(y0);
-            out(y1);
-        }
-#endif
         size_t remain = count;
 
         for (size_t i = 0; i != remain; ++i) {
             SampleType x = in();
-            SampleType y = tick(x, y_1, fb);
-            if (!std::is_same<ASlope, Zero>::value)
-                fb += fbSlope;
-
-            out(y);
-        }
-
-        if (!std::is_same<ASlope, Zero>::value)
-            _fb = fb;
-
-        _y_1 = y_1;
-    }
-
-    template < typename SigInputFunctor, typename ParamInputFunctor, typename OutputFunctor>
-    inline void run_ar ( SigInputFunctor & sigIn, ParamInputFunctor & paramIn, OutputFunctor & out, size_t count)
-    {
-        SampleType    y_1 = _y_1;
-        for (size_t i = 0; i != count; ++i)
-        {
-            auto x  = sigIn();
-            auto fb = paramIn();
-
-            auto clippedFB = checkParameter(fb);
-            auto y  = tick(x, y_1, toDouble<ParameterType>( clippedFB ) );
+            SampleType y = tick(x, y_1, state()[stateFB]);
             out(y);
         }
         _y_1 = y_1;
     }
 
-    template <typename Arg>
-    static auto checkParameter( Arg fb )
+    template < typename InputFunctor, typename OutputFunctor >
+    inline void run ( InputFunctor && in, OutputFunctor && out, size_t count )
     {
-        return clip( fb, Arg(-2.1f), Arg(2.1f) );
+        run( in, out, count, getState() );
+    }
+
+    template < typename SigInputFunctor, typename StateInputFunctor, typename OutputFunctor>
+    inline void run_ar ( SigInputFunctor && in, StateInputFunctor && stateIn, OutputFunctor && out, size_t count)
+    {
+        run( in, out, count, stateIn );
     }
 
     static inline SampleType tick( SampleType input, SampleType & y_1, ParameterType fb )
@@ -112,9 +98,9 @@ struct FeedbackAM
         return output;
     }
 
-    ParameterType _fb;
 
 private:
+    ParameterState _state;
     SampleType _y_1 = { 0.f };
 };
 
