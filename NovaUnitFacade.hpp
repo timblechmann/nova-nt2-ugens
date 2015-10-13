@@ -118,7 +118,7 @@ struct NovaUnitUnary:
 
             auto currentState = dspEngine.currentState();
             auto nextState    = computeState( ParameterInput::readInput() );
-            auto state        = parameter::makeSlope( currentState, nextState, mRate->mSlopeFactor );
+            auto state        = parameter::makeRamp( currentState, nextState, mRate->mSlopeFactor );
             dspEngine.setState( nextState );
 
             auto inSig   = SignalInput::template makeInputSignal<SampleType>();

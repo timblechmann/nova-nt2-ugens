@@ -110,15 +110,15 @@ public:
     }
 
     template <typename FloatType, typename Functor>
-    inline auto makeSlope(FloatType next, FloatType last, Functor const & f) const
+    inline auto makeRamp(FloatType next, FloatType last, Functor const & f) const
     {
         return SlopeSignal<FloatType, Functor>(last, calcSlope(next, last), f);
     }
 
     template <typename FloatType>
-    inline auto makeSlope(FloatType next, FloatType last) const
+    inline auto makeRamp(FloatType next, FloatType last) const
     {
-        return SCUnit::makeSlope(next, last);
+        return SCUnit::makeRamp(next, last);
     }
 
     template <size_t Size, typename Functor>
@@ -188,9 +188,9 @@ public:
     }
 
     template <typename FloatTypeA, typename FloatTypeB>
-    auto makeSlope(FloatTypeA next, FloatTypeB current) const
+    auto makeRamp(FloatTypeA next, FloatTypeB current) const
     {
-        return nova::parameter::makeSlope( current, next, mRate->mSlopeFactor );
+        return nova::parameter::makeRamp( current, next, mRate->mSlopeFactor );
     }
 };
 

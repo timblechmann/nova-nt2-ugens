@@ -106,7 +106,7 @@ struct NovaLeakDC:
             auto newState     = computeState( FreqInput::readInput() );
             _filter.setState( newState );
 
-            auto state = parameter::makeSlope( currentState, newState, (float)this->mRate->mSlopeFactor );
+            auto state = parameter::makeRamp( currentState, newState, (float)this->mRate->mSlopeFactor );
 
             auto inFn  = InputSignal::template makeInputSignal<vDouble>();
             auto outFn = OutputSink:: template makeSink<vDouble>();
@@ -138,7 +138,7 @@ DEFINE_XTORS(NovaLeakDC8)
 PluginLoad(NovaLeakDC)
 {
     ft = inTable;
-	DefineSimpleUnit(NovaLeakDC );
+    DefineSimpleUnit(NovaLeakDC );
     DefineSimpleUnit(NovaLeakDC2);
     DefineSimpleUnit(NovaLeakDC4);
     DefineSimpleUnit(NovaLeakDC8);

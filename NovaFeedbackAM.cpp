@@ -29,36 +29,21 @@ namespace      {
 
 template <int NumberOfChannels, bool ScalarArguments = false>
 struct NovaFeedbackAM:
-	public NovaUnitUnary<NovaFeedbackAM<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments>
+    public NovaUnitUnary<NovaFeedbackAM<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments>
 {
-	typedef NovaUnitUnary<NovaFeedbackAM<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
+    typedef NovaUnitUnary<NovaFeedbackAM<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
 
-	typedef nova::FeedbackAM<typename Base::SampleType, typename Base::ParameterDSPType> Filter;
+    typedef nova::FeedbackAM<typename Base::SampleType, typename Base::ParameterDSPType> DSPEngine;
 
     NovaFeedbackAM()
     {}
 
-	struct DSPEngine:
-		Filter
-	{
-		template <typename T>
-		void setParameter( T const & t) { Filter::_fb = t; }
+    static DSPEngine & getDSPEngine( NovaFeedbackAM * self )
+    {
+        return self->_filter;
+    }
 
-		auto getParameter() { return Filter::_fb; }
-	};
-
-    template <typename AType>
-	static auto checkParameter(AType const & a)
-	{
-		return Filter::checkParameter(a);
-	}
-
-	static DSPEngine & getDSPEngine( NovaFeedbackAM * self )
-	{
-		return self->_filter;
-	}
-
-	DSPEngine _filter;
+    DSPEngine _filter;
 };
 
 }
@@ -84,13 +69,13 @@ DEFINE_XTORS(NovaFeedbackAM8_8)
 
 PluginLoad(FBAM)
 {
-	ft = inTable;
-	DefineSimpleUnit(NovaFeedbackAM);
-	DefineSimpleUnit(NovaFeedbackAM2);
-	DefineSimpleUnit(NovaFeedbackAM4);
-	DefineSimpleUnit(NovaFeedbackAM8);
+    ft = inTable;
+    DefineSimpleUnit(NovaFeedbackAM);
+    DefineSimpleUnit(NovaFeedbackAM2);
+    DefineSimpleUnit(NovaFeedbackAM4);
+    DefineSimpleUnit(NovaFeedbackAM8);
 
-	DefineSimpleUnit(NovaFeedbackAM2_2);
-	DefineSimpleUnit(NovaFeedbackAM4_4);
-	DefineSimpleUnit(NovaFeedbackAM8_8);
+    DefineSimpleUnit(NovaFeedbackAM2_2);
+    DefineSimpleUnit(NovaFeedbackAM4_4);
+    DefineSimpleUnit(NovaFeedbackAM8_8);
 }

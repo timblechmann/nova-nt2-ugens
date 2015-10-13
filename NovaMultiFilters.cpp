@@ -55,20 +55,20 @@ namespace      {
 
 template <size_t NumberOfChannels, bool ScalarArguments = true>
 struct NovaIntegrator:
-	public NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments>
+    public NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments>
 {
-	typedef NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
+    typedef NovaUnitUnary<NovaIntegrator<NumberOfChannels, ScalarArguments>, NumberOfChannels, double, ScalarArguments> Base;
 
-	typedef Integrator<typename Base::SampleType, typename Base::ParameterDSPType> DSPEngine;
+    typedef Integrator<typename Base::SampleType, typename Base::ParameterDSPType> DSPEngine;
 
     NovaIntegrator() = default;
 
-	static DSPEngine & getDSPEngine( NovaIntegrator * self )
-	{
-		return self->_filter;
-	}
+    static DSPEngine & getDSPEngine( NovaIntegrator * self )
+    {
+        return self->_filter;
+    }
 
-	DSPEngine _filter;
+    DSPEngine _filter;
 };
 
 }
@@ -77,7 +77,7 @@ struct NovaIntegrator:
 typedef nova::NovaIntegrator<1> NovaIntegrator1;
 typedef nova::NovaIntegrator<2> NovaIntegrator2;
 typedef nova::NovaIntegrator<4> NovaIntegrator4;
-typedef nova::NovaIntegrator<8> NovaIntegrator8;
+//typedef nova::NovaIntegrator<8> NovaIntegrator8;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -99,7 +99,7 @@ struct BiquadParameterStruct
 
 template <typename FilterDesigner, size_t Size, bool ScalarArguments = true>
 struct NovaBiquadBase:
-	public NovaUnit,
+    public NovaUnit,
     public nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >,
     public nova::multichannel::OutputSink<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >,
 
@@ -111,8 +111,8 @@ struct NovaBiquadBase:
     static const int FreqInputIndex = Size;
     static const int QInputIndex    = Size + ParameterSize;
 
-	typedef typename nova::as_pack<float,  Size>::type vFloat;
-	typedef typename nova::as_pack<double, Size>::type vDouble;
+    typedef typename nova::as_pack<float,  Size>::type vFloat;
+    typedef typename nova::as_pack<double, Size>::type vDouble;
 
     typedef typename boost::mpl::if_c<ScalarArguments, double, vDouble>::type ParameterType;
     typedef typename boost::mpl::if_c<ScalarArguments, float,  vFloat>::type HostParameterType;
@@ -131,7 +131,7 @@ struct NovaBiquadBase:
     {
         initFilter();
 
-		if (isScalarRate (FreqInputIndex, FreqInputIndex + ParameterSize) )
+        if (isScalarRate (FreqInputIndex, FreqInputIndex + ParameterSize) )
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_i, &NovaBiquadBase::next_1>();
         else
             set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_k, &NovaBiquadBase::next_1>();

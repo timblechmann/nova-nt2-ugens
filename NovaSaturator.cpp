@@ -126,7 +126,7 @@ struct SaturationBase:
     {
         auto input0 = SignalInput::template makeInputSignal<SampleType>();
         if ( LevelInput::changed() ) {
-            auto input1 = LevelInput  ::template makeSlopeSignal<SampleType>();
+            auto input1 = LevelInput  ::template makeRampSignal<SampleType>();
             auto output = SignalOutput::template makeSink<SampleType>();
 
             perform<SampleType>( inNumSamples, input0, input1, output );

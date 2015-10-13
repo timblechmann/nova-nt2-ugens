@@ -39,6 +39,8 @@ add_scplugin(NovaSaturator      NovaSaturator.cpp)
 add_scplugin(NovaFeedbackAM     NovaFeedbackAM.cpp)
 add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
 
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
+
 foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter )
   add_dependencies( ${plugin}           NT2)
   add_dependencies( ${plugin}_supernova NT2)

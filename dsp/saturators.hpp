@@ -28,6 +28,8 @@
 #include <boost/simd/arithmetic/include/functions/abs.hpp>
 #include <boost/simd/arithmetic/include/functions/fast_rec.hpp>
 
+#include <boost/simd/operator/include/functions/fast_divides.hpp>
+
 #include <boost/simd/ieee/include/functions/copysign.hpp>
 
 #include <nt2/include/functions/pow_abs.hpp>
@@ -36,6 +38,14 @@
 
 namespace nova      {
 namespace saturator {
+
+template< typename Arg >
+auto distort ( Arg sample )
+{
+    using namespace boost::simd;
+    return fast_div( sample, One<Arg>() + abs(sample) );
+}
+
 
 template< typename Arg0, typename Arg1 >
 auto pow ( Arg0 sig, Arg1 level )
@@ -66,6 +76,8 @@ auto parabol ( Arg0 sig, Arg1 level )
 
     return sig * factor;
 }
+
+
 
 
 }}

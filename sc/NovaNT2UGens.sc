@@ -349,6 +349,22 @@ DiodeLadderFilter : Filter {
     }
 }
 
+
+DiodeLadderFilter2 : PureMultiOutUGen {
+    *ar { arg sig0, sig1, freq = 440, q = 0.2, feedbackHPF = 1000;
+        ^this.multiNew('audio', sig0, sig1, freq, q, feedbackHPF)
+    }
+
+    init { arg ... theInputs;
+        inputs = theInputs;
+        channels = [ OutputProxy(rate, this, 0), OutputProxy(rate, this, 1) ];
+        ^channels
+    }
+
+    checkInputs { ^this.checkNInputs(2) }
+}
+
+
 DiodeLadderFilter4 : PureMultiOutUGen {
     *ar { arg sig0, sig1, sig2, sig3, freq = 440, q = 0.2, feedbackHPF = 1000;
         ^this.multiNew('audio', sig0, sig1, sig2, sig3, freq, q, feedbackHPF)
