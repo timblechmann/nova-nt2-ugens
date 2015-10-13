@@ -11,12 +11,6 @@ ParabolSaturation : HyperbolSaturation {
 }
 
 PowSaturation : HyperbolSaturation {
-    *ar { |sig level=2.718281828459|
-        ^this.multiNew( 'audio', sig, level )
-    }
-    *kr { |sig level=2.718281828459|
-        ^this.multiNew( 'control', sig, level )
-    }
 }
 
 NovaLeakDC : PureUGen {

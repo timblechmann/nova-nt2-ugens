@@ -221,7 +221,7 @@ struct SlopedInput:
     template <typename OutputType>
     auto makeScalarInputSignal()
     {
-        return ScalarInput< UGenClass, InputIndex, InputFunctor >::template makeInputSignal<OutputType>();
+        return [=] { return mState; };
     }
 
     bool changed()

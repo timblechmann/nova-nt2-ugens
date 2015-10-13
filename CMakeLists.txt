@@ -67,3 +67,8 @@ add_executable( saturator_test tests/saturator_tests.cpp )
 target_link_libraries( saturator_test NT2 )
 set_target_properties( saturator_test PROPERTIES CXX_STANDARD 14)
 target_compile_definitions( saturator_test PUBLIC BOOST_NO_AUTO_PTR )
+
+
+if( NATIVE )
+  target_compile_options( saturator_test PUBLIC -march=native )
+endif()

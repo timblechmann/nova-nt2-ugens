@@ -17,12 +17,12 @@ void run_test(Functor && f)
     for ( auto i : boost::irange( -200, 200 ) ) {
         float x = float(i) / 100 * 5;
 
-#if 1
+#if 0
         float out = f( x, float(1) );
 #else
-        using pack = boost::simd::pack<float, 4>;
-        using pack = boost::simd::meta::vector_of<float, 4>::type;
-        pack out = f( bs::splat<pack>(x), bs::splat<pack>(1.f) );
+        using pack = boost::simd::pack<float, 8>;
+//        using pack = boost::simd::meta::vector_of<float, 4>::type;
+        pack out = f( bs::splat<pack>(x), bs::splat<pack>(2.f) );
 #endif
 
         std::cout << x << " " << out << std::endl;
