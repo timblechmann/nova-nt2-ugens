@@ -74,7 +74,7 @@ auto parabol ( Arg0 sig, Arg1 level )
     auto clippedSignal = nova::clip2( sig, limit );
     auto factor        = One<Arg0>() - ( abs( clippedSignal ) * Quarter<Arg0>() * fast_rec( level ) );
 
-    return sig * factor;
+    return clippedSignal * factor;
 }
 
 

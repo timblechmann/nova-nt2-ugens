@@ -29,6 +29,8 @@
 
 #include <boost/simd/include/functions/max.hpp>
 
+
+
 namespace {
 
 InterfaceTable *ft;
@@ -56,31 +58,33 @@ struct SaturationBase:
     typedef nova::OutputSink<SaturationBase<Parent>, 0>                     SignalOutput;
 
 
+    using vector_type     = boost::simd::pack<float, 8>;
+    const int vector_size = boost::simd::meta::cardinal_of<vector_type>::value;
+
     SaturationBase()
     {
         switch (SCUnit::inRate(1)) {
         case calc_FullRate:
-            if (boost::simd::is_aligned( bufferSize(), 8 ) )
-                set_calc_function<SaturationBase, &SaturationBase::run_a< boost::simd::pack<float, 8> > >();
+            if (boost::simd::is_aligned( bufferSize(), vector_size ) )
+                set_calc_function<SaturationBase, &SaturationBase::run_a< vector_type > >();
             else
-                set_calc_function<SaturationBase, &SaturationBase::run_a<float>>();
+                set_calc_function<SaturationBase, &SaturationBase::run_a< float >>();
             break;
 
         case calc_BufRate:
-            if (boost::simd::is_aligned( bufferSize(), 8 ) )
-                set_calc_function<SaturationBase, &SaturationBase::run_k< boost::simd::pack<float, 8> > >();
+            if (boost::simd::is_aligned( bufferSize(), vector_size ) )
+                set_calc_function<SaturationBase, &SaturationBase::run_k< vector_type > >();
             else
-                set_calc_function<SaturationBase, &SaturationBase::run_k<float>>();
+                set_calc_function<SaturationBase, &SaturationBase::run_k< float >>();
             break;
 
         case calc_ScalarRate:
         default:
-            if (boost::simd::is_aligned( bufferSize(), 8 ) )
-                set_calc_function<SaturationBase, &SaturationBase::run_i< boost::simd::pack<float, 8> > >();
+            if (boost::simd::is_aligned( bufferSize(), vector_size ) )
+                set_calc_function<SaturationBase, &SaturationBase::run_i< vector_type > >();
             else
-                set_calc_function<SaturationBase, &SaturationBase::run_i<float>>();
+                set_calc_function<SaturationBase, &SaturationBase::run_i< float >>();
         }
-
     }
 
     template <typename Functor>
@@ -152,10 +156,10 @@ struct SaturationBase:
 class HyperbolSaturation : public SaturationBase<HyperbolSaturation>
 {
 public:
-    HyperbolSaturation() = default;
+    HyperbolSaturation() {}
 
-    template <typename SampleType>
-    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
+    template <typename SampleType, typename LevelType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
     {
         return nova::saturator::hyperbol( sig, level );
     }
@@ -164,10 +168,10 @@ public:
 class ParabolSaturation : public SaturationBase<ParabolSaturation>
 {
 public:
-    ParabolSaturation() = default;
+    ParabolSaturation()  {}
 
-    template <typename SampleType>
-    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
+    template <typename SampleType, typename LevelType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
     {
         return nova::saturator::parabol( sig, level );
     }
@@ -177,12 +181,22 @@ public:
 class PowSaturation : public SaturationBase<PowSaturation>
 {
 public:
-    PowSaturation() = default;
+    PowSaturation()  {}
 
-    template <typename SampleType>
-    static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
+    template <typename SampleType, typename LevelType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
     {
+#if 0
+        std::cout << boost::simd::copysign( nt2::pow_abs( sig, level ), sig ) << std::endl;
+        std::cout << nova::saturator::pow( sig, level ) << std::endl;
+#endif
+
+        return boost::simd::copysign( nt2::pow_abs( sig, level ), sig );
+
+#if 0
+        // this seems to be broken (gcc-5.2)
         return nova::saturator::pow( sig, level );
+#endif
     }
 };
 
