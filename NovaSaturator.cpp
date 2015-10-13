@@ -152,7 +152,7 @@ struct SaturationBase:
 class HyperbolSaturation : public SaturationBase<HyperbolSaturation>
 {
 public:
-    HyperbolSaturation() = default;
+    HyperbolSaturation() {}
 
     template <typename SampleType>
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
@@ -164,7 +164,7 @@ public:
 class ParabolSaturation : public SaturationBase<ParabolSaturation>
 {
 public:
-    ParabolSaturation() = default;
+    ParabolSaturation()  {}
 
     template <typename SampleType>
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, SampleType level)
@@ -177,7 +177,7 @@ public:
 class PowSaturation : public SaturationBase<PowSaturation>
 {
 public:
-    PowSaturation() = default;
+    PowSaturation()  {}
 
     template <typename SampleType>
     static BOOST_FORCEINLINE FLATTEN SampleType doDistort(SampleType sig, SampleType level)
