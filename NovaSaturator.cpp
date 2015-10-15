@@ -58,7 +58,12 @@ struct SaturationBase:
     typedef nova::OutputSink<SaturationBase<Parent>, 0>                     SignalOutput;
 
 
+    // expression templates are broken in gcc-5.2
+#if 0
     using vector_type     = boost::simd::pack<float, 8>;
+#else
+    using vector_type     = boost::simd::meta::vector_of<float, 8>::type;
+#endif
     const int vector_size = boost::simd::meta::cardinal_of<vector_type>::value;
 
     SaturationBase()
@@ -186,17 +191,7 @@ public:
     template <typename SampleType, typename LevelType>
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
     {
-#if 0
-        std::cout << boost::simd::copysign( nt2::pow_abs( sig, level ), sig ) << std::endl;
-        std::cout << nova::saturator::pow( sig, level ) << std::endl;
-#endif
-
-        return boost::simd::copysign( nt2::pow_abs( sig, level ), sig );
-
-#if 0
-        // this seems to be broken (gcc-5.2)
         return nova::saturator::pow( sig, level );
-#endif
     }
 };
 

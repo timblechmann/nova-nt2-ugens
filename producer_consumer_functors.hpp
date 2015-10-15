@@ -124,8 +124,8 @@ auto makeRamp( Scalar base, Scalar slope )
         insert(base, val, i);
     }
 
-    OutputType state = base;
-    OutputType increment = slope * size;
+    OutputType state = boost::simd::splat<OutputType>(base);
+    OutputType increment = slope * boost::simd::splat<OutputType>(size);
 
     return [=] () mutable {
         state += increment;
