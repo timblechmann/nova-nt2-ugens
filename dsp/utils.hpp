@@ -24,6 +24,11 @@
 #include "boost/simd/include/functions/min.hpp"
 #include "boost/simd/include/functions/negs.hpp"
 
+#include <boost/simd/sdk/meta/as_pack.hpp>
+#include <boost/simd/sdk/simd/meta/vector_of.hpp>
+#include <boost/simd/sdk/meta/scalar_of.hpp>
+
+
 namespace nova {
 
 template < typename SampleType0, typename SampleType1, typename SampleType2 >
@@ -73,6 +78,24 @@ BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
 
     return ret;
 }
+
+template< typename Arg >
+auto evaluate( Arg arg )
+{
+    // gcc-5.2/c++14 won't like expression templates
+#if 0
+    using pack = typename boost::simd::meta::as_pack< typename boost::simd::meta::scalar_of<Arg>::type,
+                                                      boost::simd::meta::cardinal_of<Arg>::value
+                                                    >::type;
+#else
+    using pack = typename boost::simd::meta::vector_of< typename boost::simd::meta::scalar_of<Arg>::type, boost::simd::meta::cardinal_of<Arg>::value >::type;
+#endif
+
+    pack evalutedArg = arg;
+    return evalutedArg;
+}
+
+
 
 }
 

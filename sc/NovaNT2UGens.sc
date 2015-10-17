@@ -8,6 +8,12 @@ HyperbolSaturation : PureUGen {
 }
 
 ParabolSaturation : HyperbolSaturation {
+    *ar { |sig level=0|
+        ^this.multiNew( 'audio', sig, level )
+    }
+    *kr { |sig level=0|
+        ^this.multiNew( 'control', sig, level )
+    }
 }
 
 PowSaturation : HyperbolSaturation {

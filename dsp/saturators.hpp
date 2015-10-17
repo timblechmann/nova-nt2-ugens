@@ -46,7 +46,6 @@ auto distort ( Arg sample )
     return fast_div( sample, One<Arg>() + abs(sample) );
 }
 
-
 template< typename Arg0, typename Arg1 >
 auto pow ( Arg0 sig, Arg1 level )
 {
@@ -58,8 +57,10 @@ auto hyperbol ( Arg0 sig, Arg1 level )
 {
     using namespace boost::simd;
 
-    auto saturated = level - (level * level * fast_rec( level + abs( sig ) ) );
-    return copysign( saturated, sig );
+    auto reciprocalLevel = nova::evaluate( fast_rec( level ) );
+
+    auto saturated = reciprocalLevel - (reciprocalLevel * reciprocalLevel * fast_rec( reciprocalLevel + abs( sig ) ) );
+    return copysign( saturated, sig ) * level;
 }
 
 

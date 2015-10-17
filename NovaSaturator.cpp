@@ -59,11 +59,12 @@ struct SaturationBase:
 
 
     // expression templates are broken in gcc-5.2
-#if 0
+#if 1
     using vector_type     = boost::simd::pack<float, 8>;
 #else
     using vector_type     = boost::simd::meta::vector_of<float, 8>::type;
 #endif
+
     const int vector_size = boost::simd::meta::cardinal_of<vector_type>::value;
 
     SaturationBase()
@@ -112,8 +113,8 @@ struct SaturationBase:
 
         const size_t unroll = meta::cardinal_of<SampleType>::value;
         loop( inNumSamples / unroll, [&] {
-            auto in0 = input0();
-            auto in1 = input1();
+            auto in0 = nova::evaluate( input0() );
+            auto in1 = nova::evaluate( input1() );
             auto result = Parent::doDistort( in0, in1 );
             output(result);
         });
