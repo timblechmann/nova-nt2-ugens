@@ -8,15 +8,6 @@ include(sc-plugin-builder.cmake)
 file(GLOB headers dsp/*hpp)
 file(GLOB headers_2 *hpp)
 
-set(sources
-  NovaAmbisonicUGens.cpp
-  NovaLeakDC.cpp
-  NovaMultiFilters.cpp
-  NovaSaturator.cpp
-  NovaFeedbackAM.cpp
-  DiodeLadderFilter
-)
-
 #########
 # nt2
 
@@ -52,6 +43,10 @@ add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
 include_directories( ~/boost_1_59_0/ )
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
 
+if(APPLE)
+  # hopefully homebrew provides boost
+  include_directories( /usr/local/include )
+endif()
 foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter )
   target_link_libraries( ${plugin}           NT2)
   target_link_libraries( ${plugin}_supernova NT2)
@@ -71,4 +66,10 @@ target_compile_definitions( saturator_test PUBLIC BOOST_NO_AUTO_PTR )
 
 if( NATIVE )
   target_compile_options( saturator_test PUBLIC -march=native )
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  if(APPLE)
+    target_compile_options(saturator_test PUBLIC -Wa,-q) # workaround for homebrew's gcc
+  endif()
 endif()
