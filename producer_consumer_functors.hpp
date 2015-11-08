@@ -163,11 +163,27 @@ struct Identity {
 
 template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail::Identity>
 struct ScalarInput:
-    private InputFunctor
+    protected InputFunctor
 {
+protected:
+    UGenClass * asUGen()             { return static_cast<UGenClass*>(this);       }
+    const UGenClass * asUGen() const { return static_cast<const UGenClass*>(this); }
+
+public:
+    bool audioRate()   const         { return asUGen()->IsAudioRateIn(   InputIndex );  }
+    bool controlRate() const         { return asUGen()->IsControlRateIn( InputIndex );  }
+    bool scalarRate()  const         { return asUGen()->IsScalarRateIn(   InputIndex ); }
+
+    float slopeFactor() const        { return asUGen()->mRate->mSlopeFactor;            }
+
+    auto readRawInput()
+    {
+        return asUGen()->in0( InputIndex );
+    }
+
     auto readInput()
     {
-        return InputFunctor::operator()( static_cast<UGenClass*>(this)->in0( InputIndex ) );
+        return InputFunctor::operator()( readRawInput() );
     }
 
     template< typename OutputType >
@@ -183,14 +199,17 @@ template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail:
 struct SlopedInput:
     ScalarInput< UGenClass, InputIndex, InputFunctor >
 {
+    typedef ScalarInput< UGenClass, InputIndex, InputFunctor > Base;
+
     SlopedInput():
-        mState( readInput() )
+        mState( Base::readRawInput() )
     {}
 
     auto readInput()
     {
-        return ScalarInput< UGenClass, InputIndex, InputFunctor >::readInput();
+        return Base::readInput();
     }
+
 
     template <typename SIMDType,
               typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
