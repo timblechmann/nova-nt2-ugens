@@ -38,6 +38,7 @@ add_scplugin(NovaLeakDC         NovaLeakDC.cpp)
 add_scplugin(NovaMultiFilters   NovaMultiFilters.cpp)
 add_scplugin(NovaSaturator      NovaSaturator.cpp)
 add_scplugin(NovaFeedbackAM     NovaFeedbackAM.cpp)
+add_scplugin(NovaXFade          NovaXFade.cpp)
 add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
 
 include_directories( ~/boost_1_59_0/ )
@@ -47,7 +48,8 @@ if(APPLE)
   # hopefully homebrew provides boost
   include_directories( /usr/local/include )
 endif()
-foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter )
+
+foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter NovaXFade )
   target_link_libraries( ${plugin}           NT2)
   target_link_libraries( ${plugin}_supernova NT2)
 endforeach()

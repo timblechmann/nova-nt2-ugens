@@ -42,6 +42,8 @@ struct VerifyLevelInput
     {
         return boost::simd::max( arg, 1e-10f );
     }
+
+    typedef float ResultType;
 };
 
 template <typename Parent>

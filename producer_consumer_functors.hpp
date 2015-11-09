@@ -23,6 +23,9 @@
 
 #include "dsp/utils.hpp"
 
+#include <array>
+#include <boost/range/irange.hpp>
+
 #include "boost/simd/include/functions/aligned_load.hpp"
 #include "boost/simd/include/functions/aligned_store.hpp"
 #include "boost/simd/include/functions/extract.hpp"
@@ -114,7 +117,6 @@ auto makeRamp( Scalar base, Scalar slope )
     using namespace boost::simd;
 
     const size_t size = meta::cardinal_of<OutputType>::value;
-
     OutputType val;
 
     insert(base, val, 0);
@@ -132,6 +134,19 @@ auto makeRamp( Scalar base, Scalar slope )
         return state;
     };
 }
+
+
+template <typename OutputType, typename Scalar>
+auto makeMultiRamp( Scalar base, Scalar slope )
+{
+    OutputType state = base;
+
+    return [=] () mutable {
+        state += slope;
+        return state;
+    };
+}
+
 
 template <typename SampleType>
 struct Wire
@@ -156,6 +171,58 @@ namespace detail {
 struct Identity {
     template <typename Arg>
     auto operator()(Arg && arg) const { return arg; }
+
+    typedef float ResultType;
+};
+
+template <typename Type, int N>
+struct ArithmeticArray
+{
+    ArithmeticArray()                                          = default;
+    ArithmeticArray( ArithmeticArray const & rhs )             = default;
+    ArithmeticArray & operator=( ArithmeticArray const & rhs ) = default;
+
+
+    Type const & get(size_t n) { return data[n]; }
+
+    ArithmeticArray operator+(ArithmeticArray const & rhs) const
+    {
+        ArithmeticArray ret;
+        for( int i : boost::irange(0, N) )
+            ret[i] = data[i] + rhs[i];
+        return ret;
+    }
+
+    ArithmeticArray & operator+=(ArithmeticArray const & rhs)
+    {
+        ArithmeticArray ret;
+        for( int i : boost::irange(0, N) )
+            data[i] += rhs[i];
+        return *this;
+    }
+
+    ArithmeticArray operator-(ArithmeticArray const & rhs) const
+    {
+        ArithmeticArray ret;
+        for( int i : boost::irange(0, N) )
+            ret[i] = data[i] - rhs[i];
+        return ret;
+    }
+
+    template <typename ArgType>
+    ArithmeticArray operator*(ArgType const & value) const
+    {
+        ArithmeticArray ret;
+        for( int i : boost::irange(0, N) )
+            ret[i] = data[i] * value;
+        return ret;
+    }
+
+    Type & operator[](size_t n)             { return data[n]; }
+    Type const & operator[](size_t n) const { return data[n]; }
+
+private:
+    std::array<Type, N> data;
 };
 
 }
@@ -199,6 +266,8 @@ template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail:
 struct SlopedInput:
     ScalarInput< UGenClass, InputIndex, InputFunctor >
 {
+    typedef typename InputFunctor::ResultType State;
+
     typedef ScalarInput< UGenClass, InputIndex, InputFunctor > Base;
 
     SlopedInput():
@@ -218,11 +287,12 @@ struct SlopedInput:
     {
         using ScalarType = typename boost::simd::meta::scalar_of<SIMDType>::type;
 
-        ScalarType current = mState;
-        ScalarType next  = readInput();
-        ScalarType slope = (next - current) * ScalarType( static_cast<UGenClass*>(this)->mRate->mSlopeFactor );
-        mState = next;
-        return makeRamp<SIMDType>( current, slope );
+        State current = InputFunctor::operator ()(mState);
+        State next  = readInput();
+        State slope = (next - current) * ScalarType( Base::slopeFactor() );
+        mState = Base::readRawInput();
+        mXState = next;
+        return makeRamp<State>( current, slope );
     }
 
     template <typename ScalarType,
@@ -230,28 +300,44 @@ struct SlopedInput:
                                        >::type * = nullptr>
     auto makeRampSignal()
     {
-        ScalarType current = mState;
-        ScalarType next  = readInput();
-        ScalarType slope = (next - current) * ScalarType( static_cast<UGenClass*>(this)->mRate->mSlopeFactor );
-        mState = next;
-        return makeRamp<ScalarType>( current, slope );
+        State current = InputFunctor::operator ()(mState);
+        State next  = readInput();
+        State slope = (next - current) * ScalarType( Base::slopeFactor() );
+        mState = Base::readRawInput();
+        mXState = next;
+        return makeRamp<State>( current, slope );
     }
+
+    template <typename ScalarType>
+    auto makeMultiRampSignal()
+    {
+        State current = InputFunctor::operator ()(mState);
+        State next  = readInput();
+        State slope = (next - current) * Base::slopeFactor();
+        mState = Base::readRawInput();
+        mXState = next;
+        return makeMultiRamp<State>( current, slope );
+    }
+
 
     template <typename OutputType>
     auto makeScalarInputSignal()
     {
-        return [=] { return mState; };
+        return [=] { return mXState; };
     }
 
     bool changed()
     {
-        float next = readInput();
+        float next = Base::readRawInput();
         return next != mState;
     }
 
     float mState;
+    State mXState;
 };
 
+struct vector_tag {};
+struct scalar_tag {};
 
 template <typename UGenClass, size_t InputIndex, typename InputFunctor = detail::Identity>
 struct SignalInput:
@@ -262,27 +348,33 @@ struct SignalInput:
         return static_cast<UGenClass*>(this)->in( InputIndex );
     }
 
-    template <typename SIMDType,
-              typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
-                                       >::type * = nullptr>
+    template <typename OutputType>
     auto makeInputSignal()
+    {
+        typedef typename boost::mpl::if_c< boost::dispatch::meta::is_scalar< OutputType >::value, scalar_tag, vector_tag >::type dispatch_tag;
+        return makeInputSignal<OutputType>( dispatch_tag() );
+    }
+
+private:
+    template <typename SIMDType>
+    auto makeInputSignal( vector_tag )
     {
         const float * input = inputVector();
         return [=] () mutable {
-            SIMDType ret = InputFunctor::operator()( boost::simd::aligned_load<SIMDType>( input ) );
+            SIMDType in = boost::simd::aligned_load<SIMDType>( input );
+            auto ret = InputFunctor::operator()( in );
             input += boost::simd::meta::cardinal_of<SIMDType>::value;
             return ret;
         };
     }
 
-    template <typename ScalarType,
-              typename std::enable_if< boost::dispatch::meta::is_scalar<ScalarType>::value
-                                       >::type * = nullptr>
-    auto makeInputSignal()
+    template <typename ScalarType>
+    auto makeInputSignal( scalar_tag )
     {
         const float * input = inputVector();
         return [=] () mutable {
-            ScalarType ret = InputFunctor::operator()( *input );
+            ScalarType in = *input;
+            auto ret = InputFunctor::operator()( in );
             input += 1;
             return ret;
         };
@@ -299,7 +391,7 @@ struct ControlInput:
     template <typename OutputType>
     auto makeAudioInputSignal()
     {
-        return SignalInput<UGenClass, InputIndex, InputFunctor>::template makeInputSignal<OutputType>();
+        return SignalInput< UGenClass, InputIndex, InputFunctor>::template makeInputSignal<OutputType>();
     }
 
     /* control rate input */
@@ -307,6 +399,13 @@ struct ControlInput:
     auto makeRampSignal()
     {
         return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeRampSignal<OutputType>();
+    }
+
+    // multichannel ramp
+    template <typename OutputType>
+    auto makeMultiRampSignal()
+    {
+        return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeMultiRampSignal<OutputType>();
     }
 
     /* scalar input */
