@@ -24,6 +24,8 @@
 #include "dsp/utils.hpp"
 
 #include <array>
+#include <tuple>
+
 #include <boost/range/irange.hpp>
 
 #include "boost/simd/include/functions/aligned_load.hpp"
@@ -243,7 +245,7 @@ public:
 
     float slopeFactor() const        { return asUGen()->mRate->mSlopeFactor;            }
 
-    auto readRawInput()
+    float readRawInput()
     {
         return asUGen()->in0( InputIndex );
     }
@@ -251,6 +253,13 @@ public:
     auto readInput()
     {
         return InputFunctor::operator()( readRawInput() );
+    }
+
+    auto readRawAndMappedInput()
+    {
+        auto rawInputValue = readRawInput();
+        auto mappedInput   = InputFunctor::operator()( rawInputValue );
+        return std::make_tuple( rawInputValue, mappedInput );
     }
 
     template< typename OutputType >
@@ -279,7 +288,6 @@ struct SlopedInput:
         return Base::readInput();
     }
 
-
     template <typename SIMDType,
               typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
                                        >::type * = nullptr>
@@ -288,9 +296,9 @@ struct SlopedInput:
         using ScalarType = typename boost::simd::meta::scalar_of<SIMDType>::type;
 
         State current = InputFunctor::operator ()(mState);
-        State next  = readInput();
+        State next;
+        std::tie( mState, next ) = Base::readRawAndMappedInput();
         State slope = (next - current) * ScalarType( Base::slopeFactor() );
-        mState = Base::readRawInput();
         mXState = next;
         return makeRamp<State>( current, slope );
     }
@@ -301,9 +309,9 @@ struct SlopedInput:
     auto makeRampSignal()
     {
         State current = InputFunctor::operator ()(mState);
-        State next  = readInput();
+        State next;
+        std::tie( mState, next ) = Base::readRawAndMappedInput();
         State slope = (next - current) * ScalarType( Base::slopeFactor() );
-        mState = Base::readRawInput();
         mXState = next;
         return makeRamp<State>( current, slope );
     }
@@ -312,9 +320,9 @@ struct SlopedInput:
     auto makeMultiRampSignal()
     {
         State current = InputFunctor::operator ()(mState);
-        State next  = readInput();
+        State next;
+        std::tie( mState, next ) = Base::readRawAndMappedInput();
         State slope = (next - current) * Base::slopeFactor();
-        mState = Base::readRawInput();
         mXState = next;
         return makeMultiRamp<State>( current, slope );
     }
@@ -323,6 +331,7 @@ struct SlopedInput:
     template <typename OutputType>
     auto makeScalarInputSignal()
     {
+        std::tie( mState, mXState ) = Base::readRawAndMappedInput();
         return [=] { return mXState; };
     }
 

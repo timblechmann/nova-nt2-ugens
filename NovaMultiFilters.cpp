@@ -132,9 +132,9 @@ struct NovaBiquadBase:
         initFilter();
 
         if (isScalarRate (FreqInputIndex, FreqInputIndex + ParameterSize) )
-            set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_i, &NovaBiquadBase::next_1>();
+            setCalcFunction<NovaBiquadBase, nova::control_signature_i>();
         else
-            set_vector_calc_function<NovaBiquadBase, &NovaBiquadBase::next_k, &NovaBiquadBase::next_1>();
+            setCalcFunction<NovaBiquadBase, nova::control_signature_k>();
     }
 
     void initFilter()
@@ -148,7 +148,13 @@ struct NovaBiquadBase:
         storeFilterParameters( params );
     }
 
-    void next_1(int)
+    template <typename ControlSignature>
+    void run(int inNumSamples)
+    {
+        next( inNumSamples, ControlSignature() );
+    }
+
+    void next(int, nova::control_signature_1)
     {
         auto inFn  = SignalInput::template makeInputSignal<vDouble>();
         auto outFn = OutputSink ::template makeSink<vDouble>();
@@ -156,7 +162,7 @@ struct NovaBiquadBase:
         _filter.run(inFn, outFn, 1);
     }
 
-    void next_i(int)
+    void next(int, nova::control_signature_i)
     {
         auto inFn  = SignalInput::template makeInputSignal<vDouble>();
         auto outFn = OutputSink ::template makeSink<vDouble>();
@@ -164,13 +170,13 @@ struct NovaBiquadBase:
         _filter.run_unrolled(inFn, outFn, mRate->mFilterLoops, mRate->mFilterRemain);
     }
 
-    void next_k(int inNumSamples)
+    void next(int inNumSamples, nova::control_signature_k)
     {
         auto newFreq = FreqInput::readInput();
         auto newQ    = QInput   ::readInput();
 
         if ( !FreqInput::changed() && !QInput::changed() ) {
-            next_i(inNumSamples);
+            next(inNumSamples, nova::control_signature_i());
             return;
         }
 

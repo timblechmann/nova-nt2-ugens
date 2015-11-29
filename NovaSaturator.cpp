@@ -46,6 +46,8 @@ struct VerifyLevelInput
     typedef float ResultType;
 };
 
+using namespace nova;
+
 template <typename Parent>
 struct SaturationBase:
     public nova::NovaUnit,
@@ -65,29 +67,15 @@ struct SaturationBase:
 
     SaturationBase()
     {
-        switch (SCUnit::inRate(1)) {
-        case calc_FullRate:
-            if (boost::simd::is_aligned( bufferSize(), vector_size ) )
-                set_calc_function<SaturationBase, &SaturationBase::run_a< vector_type > >();
-            else
-                set_calc_function<SaturationBase, &SaturationBase::run_a< float >>();
-            break;
-
-        case calc_BufRate:
-            if (boost::simd::is_aligned( bufferSize(), vector_size ) )
-                set_calc_function<SaturationBase, &SaturationBase::run_k< vector_type > >();
-            else
-                set_calc_function<SaturationBase, &SaturationBase::run_k< float >>();
-            break;
-
-        case calc_ScalarRate:
-        default:
-            if (boost::simd::is_aligned( bufferSize(), vector_size ) )
-                set_calc_function<SaturationBase, &SaturationBase::run_i< vector_type > >();
-            else
-                set_calc_function<SaturationBase, &SaturationBase::run_i< float >>();
-        }
+        setVectorCalcFunction< SaturationBase, vector_type >( 1 );
     }
+
+    template <typename VectorType, typename ControlSignature>
+    void run(int inNumSamples)
+    {
+        run<VectorType>( inNumSamples, ControlSignature() );
+    }
+
 
     template <typename Functor>
     inline void loop (int loops, Functor const & f)
@@ -107,7 +95,7 @@ struct SaturationBase:
     {
         using namespace boost::simd;
 
-        const size_t unroll = meta::cardinal_of<SampleType>::value;
+        const size_t unroll = boost::simd::meta::cardinal_of<SampleType>::value;
         loop( inNumSamples / unroll, [&] {
             auto in0 = input0();
             auto in1 = input1();
@@ -118,7 +106,7 @@ struct SaturationBase:
 
 
     template <typename SampleType>
-    void run_a (int inNumSamples)
+    void run (int inNumSamples, control_signature_a)
     {
         auto input0 = SignalInput ::template makeInputSignal<SampleType>();
         auto input1 = LevelInput  ::template makeAudioInputSignal<SampleType>();
@@ -128,30 +116,37 @@ struct SaturationBase:
     }
 
     template <typename SampleType>
-    void run_k (int inNumSamples)
+    void run (int inNumSamples, control_signature_k)
     {
-        auto input0 = SignalInput::template makeInputSignal<SampleType>();
         if ( LevelInput::changed() ) {
+            auto input0 = SignalInput::template makeInputSignal<SampleType>();
             auto input1 = LevelInput  ::template makeRampSignal<SampleType>();
             auto output = SignalOutput::template makeSink<SampleType>();
 
             perform<SampleType>( inNumSamples, input0, input1, output );
         } else {
-            auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
-            auto output = SignalOutput::template makeSink<SampleType>();
-
-            perform<SampleType>( inNumSamples, input0, input1, output );
+            run<SampleType>( inNumSamples, control_signature_i() );
         }
     }
 
     template <typename SampleType>
-    void run_i (int inNumSamples)
+    void run (int inNumSamples, control_signature_i)
     {
         auto input0 = SignalInput ::template makeInputSignal<SampleType>();
         auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
         auto output = SignalOutput::template makeSink<SampleType>();
 
         perform<SampleType>( inNumSamples, input0, input1, output );
+    }
+
+    template <typename SampleType>
+    void run (int inNumSamples, control_signature_1)
+    {
+        auto input0 = SignalInput ::template makeInputSignal<SampleType>();
+        auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
+        auto output = SignalOutput::template makeSink<SampleType>();
+
+        perform<SampleType>( 1, input0, input1, output );
     }
 };
 
@@ -188,17 +183,7 @@ public:
     template <typename SampleType, typename LevelType>
     static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
     {
-#if 0
-        std::cout << boost::simd::copysign( nt2::pow_abs( sig, level ), sig ) << std::endl;
-        std::cout << nova::saturator::pow( sig, level ) << std::endl;
-#endif
-
-        return boost::simd::copysign( nt2::pow_abs( sig, level ), sig );
-
-#if 0
-        // this seems to be broken (gcc-5.2)
         return nova::saturator::pow( sig, level );
-#endif
     }
 };
 

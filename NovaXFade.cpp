@@ -32,6 +32,7 @@ using nova::NovaUnit;
 InterfaceTable *ft;
 
 namespace nova {
+namespace PanningLaws {
 
 struct EqualPowerPanning
 {
@@ -75,6 +76,7 @@ struct LinearPanning
     typedef detail::ArithmeticArray<float, 2> ResultType;
 };
 
+}
 
 
 template <typename PanningLawFunctor>
@@ -99,41 +101,25 @@ struct NovaXFade:
     using vector_type     = boost::simd::pack<float, 8>;
     const int vector_size = boost::simd::meta::cardinal_of<vector_type>::value;
 
-#define SetCalcFunction( functionName ) \
-    do {                                                                              \
-        if (boost::simd::is_aligned( bufferSize(), vector_size ) )                    \
-            set_calc_function<NovaXFade, &NovaXFade::functionName< vector_type > >(); \
-        else                                                                          \
-            set_calc_function<NovaXFade, &NovaXFade::functionName< float >>();        \
-    } while(0);
-
     NovaXFade()
     {
-        if( SCUnit::inRate(2) == calc_FullRate && SCUnit::inRate(3) == calc_FullRate ) {
-            SetCalcFunction( next_aa );
-            return;
-        }
-
-        if(                                       SCUnit::inRate(3) == calc_FullRate ) {
-            SetCalcFunction( next_ka );
-            return;
-        }
-
-        if( SCUnit::inRate(2) == calc_FullRate                                       ) {
-            SetCalcFunction( next_ak );
-            return;
-        }
-
-        SetCalcFunction( next_kk );
+        setVectorCalcFunction< NovaXFade, vector_type >( 2, 3 );
     }
 
+    template <typename VectorType, typename ControlSignature>
+    void run(int inNumSamples)
+    {
+        next<VectorType>( inNumSamples, ControlSignature() );
+    }
+
+
     template <typename VectorType>
-    void next_ak(int inNumSamples)
+    void next(int inNumSamples, control_signature_ak)
     {
         auto panFn      = PanInput::template makeAudioInputSignal<VectorType>();
 
         if( LevelInput::changed() ) {
-            auto levelFn = LevelInput::template makeRampSignal<VectorType>();
+            auto levelFn = LevelInput::template makeMultiRampSignal<VectorType>();
             return next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto levelFn = LevelInput::template makeScalarInputSignal<VectorType>();
@@ -142,7 +128,7 @@ struct NovaXFade:
     }
 
     template <typename VectorType>
-    void next_ka(int inNumSamples)
+    void next(int inNumSamples, control_signature_ka)
     {
         auto levelFn     = LevelInput::template makeAudioInputSignal<VectorType>();
 
@@ -156,7 +142,7 @@ struct NovaXFade:
     }
 
     template <typename VectorType>
-    void next_aa(int inNumSamples)
+    void next(int inNumSamples, control_signature_aa)
     {
         auto panFn      = PanInput::  template makeAudioInputSignal<VectorType>();
         auto levelFn    = LevelInput::template makeAudioInputSignal<VectorType>();
@@ -164,17 +150,25 @@ struct NovaXFade:
     }
 
     template <typename VectorType>
-    void next_kk(int inNumSamples)
+    void next(int inNumSamples, control_signature_kk)
     {
         if( PanInput::changed() || LevelInput::changed() ) {
             auto panFn   = PanInput::  template makeMultiRampSignal<VectorType>();
-            auto levelFn = LevelInput::template makeRampSignal<VectorType>();
+            auto levelFn = LevelInput::template makeMultiRampSignal<VectorType>();
             next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto panFn   = PanInput::  template makeScalarInputSignal<VectorType>();
             auto levelFn = LevelInput::template makeScalarInputSignal<VectorType>();
             next<VectorType, calc_BufRate>( panFn, levelFn, inNumSamples );
         }
+    }
+
+    template <typename VectorType>
+    void next(int inNumSamples, control_signature_11)
+    {
+        auto panFn   = PanInput::  template makeScalarInputSignal<VectorType>();
+        auto levelFn = LevelInput::template makeScalarInputSignal<VectorType>();
+        next<VectorType, calc_BufRate>( panFn, levelFn, inNumSamples );
     }
 
     template <typename VectorType, int parameterRate, typename PanFn, typename LevelFn>
@@ -210,8 +204,8 @@ struct NovaXFade:
 
 }
 
-typedef nova::NovaXFade<nova::EqualPowerPanning> NovaXFade;
-typedef nova::NovaXFade<nova::LinearPanning>     NovaLinXFade;
+typedef nova::NovaXFade<nova::PanningLaws::EqualPowerPanning> NovaXFade;
+typedef nova::NovaXFade<nova::PanningLaws::LinearPanning>     NovaLinXFade;
 
 DEFINE_XTORS(NovaXFade)
 DEFINE_XTORS(NovaLinXFade)

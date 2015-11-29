@@ -56,20 +56,7 @@ struct NovaLeakDC:
         _filter( computeState(FreqInput::readInput()),
                  InputSignal::template readInputs<vDouble>() )
     {
-        switch (inRate(IndexOfCoefficient))
-        {
-        case calc_ScalarRate:
-            set_calc_function<NovaLeakDC, &NovaLeakDC::next_i>();
-            break;
-
-        case calc_FullRate:
-            set_calc_function<NovaLeakDC, &NovaLeakDC::next_a>();
-            break;
-
-        case calc_BufRate:
-        default:
-            set_calc_function<NovaLeakDC, &NovaLeakDC::next_k>();
-        }
+        setCalcFunction< NovaLeakDC >( IndexOfCoefficient );
     }
 
     auto computeState ( float cutoffFreq )
@@ -77,7 +64,13 @@ struct NovaLeakDC:
         return Filter::computeState( cutoffFreq, makeDSPContext() );
     }
 
-    void next_a(int inNumSamples)
+    template <typename ControlSignature>
+    void run(int inNumSamples)
+    {
+        run( inNumSamples, ControlSignature() );
+    }
+
+    void run(int inNumSamples, nova::control_signature_a)
     {
         auto inFn       = InputSignal::template makeInputSignal<vDouble>();
         auto outFn      = OutputSink:: template makeSink<vDouble>();
@@ -91,7 +84,7 @@ struct NovaLeakDC:
         _filter.run(inFn, outFn, inNumSamples, parameterFunctor );
     }
 
-    void next_i(int inNumSamples)
+    void run(int inNumSamples, nova::control_signature_i)
     {
         auto inFn  = InputSignal::template makeInputSignal<vDouble>();
         auto outFn = OutputSink:: template makeSink<vDouble>();
@@ -99,7 +92,7 @@ struct NovaLeakDC:
         _filter.run(inFn, outFn, inNumSamples );
     }
 
-    void next_k(int inNumSamples)
+    void run(int inNumSamples, nova::control_signature_k)
     {
         if ( FreqInput::changed() ) {
             auto currentState = _filter.currentState();
@@ -112,7 +105,7 @@ struct NovaLeakDC:
             auto outFn = OutputSink:: template makeSink<vDouble>();
             _filter.run(inFn, outFn, inNumSamples, state );
         } else {
-            next_i(inNumSamples);
+            run(inNumSamples, nova::control_signature_i());
         }
     }
 

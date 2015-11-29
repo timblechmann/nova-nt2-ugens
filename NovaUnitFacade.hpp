@@ -69,16 +69,16 @@ struct NovaUnitUnary:
         initDSP();
 
         if (isScalarRate(IndexOfParameter, IndexOfParameter + ParameterSize)) {
-            set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_i>();
+            setCalcFunction< NovaUnitUnary, control_signature_i >();
             return;
         }
 
         if (isBufRate(IndexOfParameter, IndexOfParameter + ParameterSize)) {
-            set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_k>();
+            setCalcFunction< NovaUnitUnary, control_signature_k >();
             return;
         }
 
-        set_calc_function<NovaUnitUnary, &NovaUnitUnary::next_a>();
+        setCalcFunction< NovaUnitUnary, control_signature_a >();
     }
 
     void initDSP()
@@ -99,8 +99,14 @@ struct NovaUnitUnary:
     }
 
 
+    template <typename ControlSignature>
+    void run(int inNumSamples)
+    {
+        next( inNumSamples, ControlSignature() );
+    }
+
     // process function
-    void next_i(int inNumSamples)
+    void next(int inNumSamples, control_signature_i)
     {
         auto inSig   = SignalInput::template makeInputSignal<SampleType>();
         auto outSink = OutputSink ::template makeSink<SampleType>();
@@ -109,10 +115,10 @@ struct NovaUnitUnary:
         dspEngine.run(inSig, outSink, inNumSamples);
     }
 
-    void next_k(int inNumSamples)
+    void next(int inNumSamples, control_signature_k)
     {
         if( !ParameterInput::changed() ) {
-            next_i(inNumSamples);
+            next(inNumSamples, control_signature_i());
         } else {
             auto & dspEngine = getEngine();
 
@@ -128,7 +134,7 @@ struct NovaUnitUnary:
         }
     }
 
-    void next_a(int inNumSamples)
+    void next(int inNumSamples, control_signature_a)
     {
         auto inSig     = SignalInput::template makeInputSignal<SampleType>();
         auto inParamFn = ParameterInput::template makeAudioInputSignal<ParameterType>();

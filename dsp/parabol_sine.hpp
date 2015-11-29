@@ -71,7 +71,7 @@ Type parabol_cos( Type x )
                  x - Two<Type>() * Pi<Type>(),
                  x );
 
-    return parabol_sine( x );
+    return parabol_sin( x );
 }
 
 template <typename Type>
