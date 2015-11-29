@@ -53,6 +53,11 @@ struct EqualPowerPanning
     }
 
     typedef detail::ArithmeticArray<float, 2> ResultType;
+
+    template <typename Type>
+    struct State {
+        typedef detail::ArithmeticArray<Type, 2> type;
+    };
 };
 
 
@@ -74,6 +79,11 @@ struct LinearPanning
     }
 
     typedef detail::ArithmeticArray<float, 2> ResultType;
+
+    template <typename Type>
+    struct State {
+        typedef detail::ArithmeticArray<Type, 2> type;
+    };
 };
 
 }
@@ -119,7 +129,7 @@ struct NovaXFade:
         auto panFn      = PanInput::template makeAudioInputSignal<VectorType>();
 
         if( LevelInput::changed() ) {
-            auto levelFn = LevelInput::template makeMultiRampSignal<VectorType>();
+            auto levelFn = LevelInput::template makeRampSignal<VectorType>();
             return next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto levelFn = LevelInput::template makeScalarInputSignal<VectorType>();
@@ -133,7 +143,7 @@ struct NovaXFade:
         auto levelFn     = LevelInput::template makeAudioInputSignal<VectorType>();
 
         if( PanInput::changed() ) {
-            auto panFn   = PanInput::  template makeMultiRampSignal<VectorType>();
+            auto panFn   = PanInput::  template makeRampSignal<VectorType>();
             next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto panFn   = PanInput::  template makeScalarInputSignal<VectorType>();
@@ -153,8 +163,8 @@ struct NovaXFade:
     void next(int inNumSamples, control_signature_kk)
     {
         if( PanInput::changed() || LevelInput::changed() ) {
-            auto panFn   = PanInput::  template makeMultiRampSignal<VectorType>();
-            auto levelFn = LevelInput::template makeMultiRampSignal<VectorType>();
+            auto panFn   = PanInput::  template makeRampSignal<VectorType>();
+            auto levelFn = LevelInput::template makeRampSignal<VectorType>();
             next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto panFn   = PanInput::  template makeScalarInputSignal<VectorType>();

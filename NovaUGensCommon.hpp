@@ -34,17 +34,17 @@ namespace nova {
 // dispatch tags
 
 struct control_signature_k {};
-struct control_signature_1 : control_signature_k{};
 struct control_signature_i : control_signature_k {};
+struct control_signature_1 : control_signature_i {};
 struct control_signature_a : control_signature_k {};
 
 
 struct control_signature_kk {};
-struct control_signature_11 : control_signature_kk {};
 struct control_signature_ki : control_signature_kk {};
 struct control_signature_ka : control_signature_kk {};
 
 struct control_signature_ii : control_signature_kk {};
+struct control_signature_11 : control_signature_ii {};
 struct control_signature_ik : control_signature_kk {};
 struct control_signature_ia : control_signature_ka {};
 

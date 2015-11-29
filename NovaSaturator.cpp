@@ -44,6 +44,11 @@ struct VerifyLevelInput
     }
 
     typedef float ResultType;
+
+    template <typename Type>
+    struct State {
+        typedef Type type;
+    };
 };
 
 using namespace nova;
