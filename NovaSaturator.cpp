@@ -30,7 +30,6 @@
 #include <boost/simd/include/functions/max.hpp>
 
 
-
 namespace {
 
 InterfaceTable *ft;
@@ -43,28 +42,171 @@ struct VerifyLevelInput
         return boost::simd::max( arg, 1e-10f );
     }
 
-    typedef float ResultType;
-
     template <typename Type>
     struct State {
         typedef Type type;
     };
 };
 
+struct PowDistortion
+{
+    typedef VerifyLevelInput InputFunctor;
+
+    template <typename SampleType, typename LevelType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
+    {
+        return nova::saturator::pow( sig, level );
+    }
+};
+
+struct HyperbolDistortion
+{
+    typedef VerifyLevelInput InputFunctor;
+
+    template <typename SampleType, typename LevelType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
+    {
+        return nova::saturator::hyperbol( sig, level );
+    }
+};
+
+struct ParabolDistortion
+{
+    typedef VerifyLevelInput InputFunctor;
+
+    template <typename SampleType, typename LevelType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
+    {
+        return nova::saturator::parabol( sig, level );
+    }
+};
+
+
+struct TanhDistortion
+{
+    struct InputFunctor
+    {
+        template <typename Arg>
+        auto operator()(Arg const & arg) const
+        {
+            auto preGain  = boost::simd::max( arg, 1e-10f );
+            auto postGain = boost::simd::fast_rec( nt2::tanh( preGain ) );
+
+            using Scalar                 = typename boost::simd::meta::scalar_of<Arg>::type;
+            static const size_t Cardinal = boost::simd::meta::cardinal_of<Arg>::value;
+
+            using ResultType = typename nova::as_pack< Scalar, Cardinal >::type;
+
+            typedef nova::detail::ArithmeticArray<ResultType, 2> Result;
+
+            Result ret;
+            ret[0] = preGain;
+            ret[1] = postGain;
+            return ret;
+        }
+
+        template <typename Type>
+        struct State {
+            typedef nova::detail::ArithmeticArray<Type, 2> type;
+        };
+    };
+
+    template <typename SampleType, typename StateType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, StateType state)
+    {
+        return nova::saturator::tanh_saturator( sig, state[0], state[1] );
+    }
+};
+
+
+struct FastTanhDistortion
+{
+    struct InputFunctor
+    {
+        template <typename Arg>
+        auto operator()(Arg const & arg) const
+        {
+            using Scalar                 = typename boost::simd::meta::scalar_of<Arg>::type;
+            static const size_t Cardinal = boost::simd::meta::cardinal_of<Arg>::value;
+            using ResultType = typename nova::as_pack< Scalar, Cardinal >::type;
+
+            const ResultType preGain  = boost::simd::max( arg, 1e-10f );
+            const ResultType postGain = boost::simd::fast_rec( nova::approximations::fast_tanh( preGain ) );
+
+            typedef nova::detail::ArithmeticArray<ResultType, 2> Result;
+
+            Result ret;
+            ret[0] = preGain;
+            ret[1] = postGain;
+            return ret;
+        }
+
+        template <typename Type>
+        struct State {
+            typedef nova::detail::ArithmeticArray<Type, 2> type;
+        };
+    };
+
+    template <typename SampleType, typename StateType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, StateType const & state)
+    {
+        return nova::saturator::fast_tanh_saturator( sig, state[0], state[1] );
+    }
+};
+
+struct FasterTanhDistortion
+{
+    struct InputFunctor
+    {
+        template <typename Arg>
+        auto operator()(Arg const & arg) const
+        {
+            using Scalar                 = typename boost::simd::meta::scalar_of<Arg>::type;
+            static const size_t Cardinal = boost::simd::meta::cardinal_of<Arg>::value;
+            using ResultType = typename nova::as_pack< Scalar, Cardinal >::type;
+
+            const ResultType preGain  = boost::simd::max( arg, 1e-10f );
+            const ResultType postGain = boost::simd::fast_rec( nova::approximations::fast_tanh( preGain ) );
+
+            typedef nova::detail::ArithmeticArray<ResultType, 2> Result;
+
+            Result ret;
+            ret[0] = preGain;
+            ret[1] = postGain;
+            return ret;
+        }
+
+        template <typename Type>
+        struct State {
+            typedef nova::detail::ArithmeticArray<Type, 2> type;
+        };
+    };
+
+    template <typename SampleType, typename StateType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, StateType const & state)
+    {
+        return nova::saturator::faster_tanh_saturator( sig, state[0], state[1] );
+    }
+};
+
+
+
 using namespace nova;
 
-template <typename Parent>
+template <typename Distortion>
 struct SaturationBase:
     public nova::NovaUnit,
-    public nova::SignalInput<SaturationBase<Parent>, 0>,
-    public nova::ControlInput<SaturationBase<Parent>, 1, VerifyLevelInput>,
+    public nova::SignalInput<  SaturationBase<Distortion>, 0 >,
+    public nova::ControlInput< SaturationBase<Distortion>, 1, typename Distortion::InputFunctor >,
 
-    public nova::OutputSink<SaturationBase<Parent>, 0>
+    public nova::OutputSink<   SaturationBase<Distortion>, 0 >
 {
-    typedef nova::SignalInput<SaturationBase<Parent>, 0>                    SignalInput;
-    typedef nova::ControlInput<SaturationBase<Parent>, 1, VerifyLevelInput> LevelInput;
+    typedef typename Distortion::InputFunctor InputFunctor;
 
-    typedef nova::OutputSink<SaturationBase<Parent>, 0>                     SignalOutput;
+    typedef nova::SignalInput<  SaturationBase, 0 >               SignalInput;
+    typedef nova::ControlInput< SaturationBase, 1, InputFunctor > LevelInput;
+
+    typedef nova::OutputSink<   SaturationBase, 0 >               SignalOutput;
 
 
     using vector_type     = boost::simd::pack<float, 8>;
@@ -104,7 +246,7 @@ struct SaturationBase:
         loop( inNumSamples / unroll, [&] {
             auto in0 = input0();
             auto in1 = input1();
-            auto result = Parent::doDistort( in0, in1 );
+            auto result = Distortion::doDistort( in0, in1 );
             output(result);
         });
     }
@@ -124,7 +266,7 @@ struct SaturationBase:
     void run (int inNumSamples, control_signature_k)
     {
         if ( LevelInput::changed() ) {
-            auto input0 = SignalInput::template makeInputSignal<SampleType>();
+            auto input0 = SignalInput ::template makeInputSignal<SampleType>();
             auto input1 = LevelInput  ::template makeRampSignal<SampleType>();
             auto output = SignalOutput::template makeSink<SampleType>();
 
@@ -155,48 +297,21 @@ struct SaturationBase:
     }
 };
 
-class HyperbolSaturation : public SaturationBase<HyperbolSaturation>
-{
-public:
-    HyperbolSaturation() {}
 
-    template <typename SampleType, typename LevelType>
-    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
-    {
-        return nova::saturator::hyperbol( sig, level );
-    }
-};
-
-class ParabolSaturation : public SaturationBase<ParabolSaturation>
-{
-public:
-    ParabolSaturation()  {}
-
-    template <typename SampleType, typename LevelType>
-    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
-    {
-        return nova::saturator::parabol( sig, level );
-    }
-};
-
-
-class PowSaturation : public SaturationBase<PowSaturation>
-{
-public:
-    PowSaturation()  {}
-
-    template <typename SampleType, typename LevelType>
-    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, LevelType level)
-    {
-        return nova::saturator::pow( sig, level );
-    }
-};
-
+typedef SaturationBase<PowDistortion>        PowSaturation;
+typedef SaturationBase<HyperbolDistortion>   HyperbolSaturation;
+typedef SaturationBase<ParabolDistortion>    ParabolSaturation;
+typedef SaturationBase<TanhDistortion>       TanhSaturation;
+typedef SaturationBase<FastTanhDistortion>   FastTanhSaturation;
+typedef SaturationBase<FasterTanhDistortion> FasterTanhSaturation;
 
 
 DEFINE_XTORS(HyperbolSaturation)
 DEFINE_XTORS(ParabolSaturation)
 DEFINE_XTORS(PowSaturation)
+DEFINE_XTORS(TanhSaturation)
+DEFINE_XTORS(FastTanhSaturation)
+DEFINE_XTORS(FasterTanhSaturation)
 
 }
 
@@ -206,4 +321,7 @@ PluginLoad(NovaSaturators)
     DefineDtorUnit(HyperbolSaturation);
     DefineDtorUnit(ParabolSaturation);
     DefineDtorUnit(PowSaturation);
+    DefineDtorUnit(TanhSaturation);
+    DefineDtorUnit(FastTanhSaturation);
+    DefineDtorUnit(FasterTanhSaturation);
 }

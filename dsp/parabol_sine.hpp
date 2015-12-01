@@ -37,7 +37,8 @@
 #include <boost/dispatch/meta/scalar_of.hpp>
 #include <boost/simd/sdk/meta/cardinal_of.hpp>
 
-namespace nova {
+namespace nova           {
+namespace approximations {
 
 /* fast sine approximation
  * adapted from http://www.devmaster.net/forums/showthread.php?t=5784
@@ -101,6 +102,6 @@ std::tuple<Type, Type> parabol_sincos( Type x )
     return std::make_tuple( sin, cos );
 }
 
-}
+}}
 
 #endif // PARABOL_SINE_HPP

@@ -24,8 +24,10 @@
 #include <boost/simd/include/constants/one.hpp>
 #include <boost/simd/include/constants/two.hpp>
 #include <boost/simd/include/constants/quarter.hpp>
+#include <boost/simd/include/constants/zero.hpp>
 
 #include <boost/simd/arithmetic/include/functions/abs.hpp>
+#include <boost/simd/arithmetic/include/functions/raw_rec.hpp>
 #include <boost/simd/arithmetic/include/functions/fast_rec.hpp>
 
 #include <boost/simd/operator/include/functions/fast_divides.hpp>
@@ -33,8 +35,11 @@
 #include <boost/simd/ieee/include/functions/copysign.hpp>
 
 #include <nt2/include/functions/pow_abs.hpp>
+#include <nt2/include/functions/tanh.hpp>
 
 #include <dsp/utils.hpp>
+
+#include <dsp/tanh_approximation.hpp>
 
 namespace nova      {
 namespace saturator {
@@ -46,6 +51,12 @@ auto distort ( Arg sample )
     return fast_div( sample, One<Arg>() + abs(sample) );
 }
 
+template< typename Arg >
+auto raw_distort ( Arg sample )
+{
+    using namespace boost::simd;
+    return sample * raw_rec( One<Arg>() + abs(sample) );
+}
 
 template< typename Arg0, typename Arg1 >
 auto pow ( Arg0 sig, Arg1 level )
@@ -78,6 +89,24 @@ auto parabol ( Arg0 sig, Arg1 level )
 }
 
 
+template< typename Arg0, typename Arg1 >
+auto tanh_saturator( Arg0 sig, Arg1 preGain, Arg1 postGain ) -> Arg0
+{
+    return nt2::tanh( sig * preGain ) * postGain;
+}
+
+
+template< typename Arg0, typename Arg1 >
+auto fast_tanh_saturator( Arg0 sig, Arg1 preGain, Arg1 postGain ) -> Arg0
+{
+    return nova::approximations::fast_tanh<Arg0>( sig * preGain ) * postGain;
+}
+
+template< typename Arg0, typename Arg1 >
+auto faster_tanh_saturator( Arg0 sig, Arg1 preGain, Arg1 postGain ) -> Arg0
+{
+    return nova::approximations::faster_tanh<Arg0>( sig * preGain ) * postGain;
+}
 
 
 }}

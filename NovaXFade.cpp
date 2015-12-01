@@ -41,8 +41,8 @@ struct EqualPowerPanning
     {
         SampleType arg = input * boost::simd::Half<SampleType>() * boost::simd::Pi<SampleType>();
         SampleType leftGain, rightGain;
-        leftGain  = parabol_cos( arg );
-        rightGain = parabol_sin( arg );
+        leftGain  = approximations::parabol_cos( arg );
+        rightGain = approximations::parabol_sin( arg );
 
         typedef detail::ArithmeticArray<SampleType, 2> Result;
 
@@ -51,8 +51,6 @@ struct EqualPowerPanning
         ret[1] = rightGain;
         return ret;
     }
-
-    typedef detail::ArithmeticArray<float, 2> ResultType;
 
     template <typename Type>
     struct State {
@@ -77,8 +75,6 @@ struct LinearPanning
         ret[1] = rightGain;
         return ret;
     }
-
-    typedef detail::ArithmeticArray<float, 2> ResultType;
 
     template <typename Type>
     struct State {

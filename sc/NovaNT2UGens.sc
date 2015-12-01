@@ -13,6 +13,16 @@ ParabolSaturation : HyperbolSaturation {
 PowSaturation : HyperbolSaturation {
 }
 
+TanhSaturation : HyperbolSaturation {
+}
+
+FastTanhSaturation : HyperbolSaturation {
+}
+
+FasterTanhSaturation : HyperbolSaturation {
+}
+
+
 NovaLeakDC : PureUGen {
     *ar { arg sig, cutoff;
         ^this.multiNew( 'audio', sig, cutoff )
