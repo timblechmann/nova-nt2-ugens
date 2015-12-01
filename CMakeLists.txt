@@ -24,7 +24,7 @@ ExternalProject_Add( NT2Project
 add_library( NT2 INTERFACE )
 target_include_directories( NT2 INTERFACE ${CMAKE_CURRENT_BINARY_DIR}/nt2/build/include )
 add_dependencies( NT2 NT2Project )
-target_compile_definitions( NT2 INTERFACE BOOST_SIMD_NO_STRICT_ALIASING )
+target_compile_definitions( NT2 INTERFACE BOOST_SIMD_NO_STRICT_ALIASING BOOST_SIMD_NO_NANS )
 
 
 
