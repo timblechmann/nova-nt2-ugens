@@ -23,6 +23,7 @@
 #define NOVAUGENSCOMMON_HPP
 
 #include <algorithm>
+#include <type_traits>
 #include <boost/range/irange.hpp>
 
 #include <boost/simd/sdk/meta/cardinal_of.hpp>
@@ -334,5 +335,14 @@ public:
 };
 
 } // namespace nova
+
+#define NovaDefineUnit(name) \
+    do {                                                            \
+        if( std::is_trivially_destructible<name>::value ) {         \
+            DefineSimpleUnit(name);                                 \
+        } else  {                                                   \
+            DefineDtorUnit(name);                                   \
+        }                                                           \
+    } while(0)
 
 #endif // NOVAUGENSCOMMON_HPP
