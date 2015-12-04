@@ -45,18 +45,43 @@ namespace nova      {
 namespace saturator {
 
 template< typename Arg >
-auto distort ( Arg sample )
+auto distort ( Arg sample ) -> Arg
 {
     using namespace boost::simd;
     return fast_div( sample, One<Arg>() + abs(sample) );
 }
 
 template< typename Arg >
-auto raw_distort ( Arg sample )
+auto distort_raw ( Arg sample ) -> Arg
 {
     using namespace boost::simd;
     return sample * raw_rec( One<Arg>() + abs(sample) );
 }
+
+
+template< typename Arg >
+auto softclip ( Arg x ) -> Arg
+{
+    using namespace boost::simd;
+    Arg absX = abs( x );
+
+    return boost::simd::if_else( absX < Half<Arg>(),
+                                 x,
+                                 ( absX - Quarter<Arg>() ) * fast_rec( x ) );
+}
+
+template< typename Arg >
+auto softclip_raw ( Arg x ) -> Arg
+{
+    using namespace boost::simd;
+    Arg absX = abs( x );
+
+    return boost::simd::if_else( absX < Half<Arg>(),
+                                 x,
+                                 ( absX - Quarter<Arg>() ) * raw_rec( x ) );
+}
+
+
 
 template< typename Arg0, typename Arg1 >
 auto pow ( Arg0 sig, Arg1 level )

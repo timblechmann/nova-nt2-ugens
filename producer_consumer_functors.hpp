@@ -165,7 +165,10 @@ struct Identity {
     template <typename Arg>
     auto operator()(Arg && arg) const { return arg; }
 
-    typedef float ResultType;
+    template <typename Type>
+    struct State {
+        typedef Type type;
+    };
 };
 
 template <typename Type, int N>

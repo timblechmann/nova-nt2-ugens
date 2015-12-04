@@ -22,6 +22,12 @@ FastTanhSaturation : HyperbolSaturation {
 FasterTanhSaturation : HyperbolSaturation {
 }
 
+NovaLinearWaveFolder : HyperbolSaturation {
+}
+
+NovaLinearWaveWrapper : HyperbolSaturation {
+}
+
 
 NovaLeakDC : PureUGen {
     *ar { arg sig, cutoff;
