@@ -97,34 +97,36 @@ struct BiquadParameterStruct
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-template <typename FilterDesigner, size_t Size, bool ScalarArguments = true>
+template <typename FilterDesigner, size_t Size, bool ScalarArguments = true, bool Fast = true>
 struct NovaBiquadBase:
     public NovaUnit,
-    public nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >,
-    public nova::multichannel::OutputSink<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >,
+    public nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments, Fast>, 0, Size >,
+    public nova::multichannel::OutputSink<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments, Fast>, 0, Size >,
 
     // Controls:
-    public nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size,                                (ScalarArguments ? 1 : Size) >,
-    public nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size + (ScalarArguments ? 1 : Size), (ScalarArguments ? 1 : Size) >
+    public nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments, Fast>, Size,                                (ScalarArguments ? 1 : Size) >,
+    public nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments, Fast>, Size + (ScalarArguments ? 1 : Size), (ScalarArguments ? 1 : Size) >
 {
     static const size_t ParameterSize = ScalarArguments ? 1 : Size;
     static const int FreqInputIndex = Size;
     static const int QInputIndex    = Size + ParameterSize;
 
-    typedef typename nova::as_pack<float,  Size>::type vFloat;
-    typedef typename nova::as_pack<double, Size>::type vDouble;
+    typedef typename boost::mpl::if_c<Fast, float, double>::type InternalType;
 
-    typedef typename boost::mpl::if_c<ScalarArguments, double, vDouble>::type ParameterType;
+    typedef typename nova::as_pack<float,  Size>::type vFloat;
+    typedef typename nova::as_pack<double, Size>::type vInternal;
+
+    typedef typename boost::mpl::if_c<ScalarArguments, InternalType, vInternal>::type ParameterType;
     typedef typename boost::mpl::if_c<ScalarArguments, float,  vFloat>::type HostParameterType;
 
     typedef typename FilterDesigner::template makeParameter<ParameterType>::type BiquadParameterStruct;
-    typedef nova::Biquad<vDouble, BiquadParameterStruct> Filter;
+    typedef nova::Biquad<vInternal, BiquadParameterStruct> Filter;
 
-    using SignalInput = nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >;
-    using OutputSink  = nova::multichannel::OutputSink<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, 0, Size >;
+    using SignalInput = nova::multichannel::SignalInput< NovaBiquadBase, 0, Size >;
+    using OutputSink  = nova::multichannel::OutputSink<  NovaBiquadBase, 0, Size >;
 
-    using FreqInput = nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size,                                ScalarArguments ? 1 : Size >;
-    using QInput    = nova::multichannel::ControlInput<  NovaBiquadBase<FilterDesigner, Size, ScalarArguments>, Size + (ScalarArguments ? 1 : Size), ScalarArguments ? 1 : Size >;
+    using FreqInput = nova::multichannel::ControlInput<  NovaBiquadBase, Size,                                ScalarArguments ? 1 : Size >;
+    using QInput    = nova::multichannel::ControlInput<  NovaBiquadBase, Size + (ScalarArguments ? 1 : Size), ScalarArguments ? 1 : Size >;
 
 
     NovaBiquadBase()
@@ -156,16 +158,16 @@ struct NovaBiquadBase:
 
     void next(int, nova::control_signature_1)
     {
-        auto inFn  = SignalInput::template makeInputSignal<vDouble>();
-        auto outFn = OutputSink ::template makeSink<vDouble>();
+        auto inFn  = SignalInput::template makeInputSignal<vInternal>();
+        auto outFn = OutputSink ::template makeSink<vInternal>();
 
         _filter.run(inFn, outFn, 1);
     }
 
     void next(int, nova::control_signature_i)
     {
-        auto inFn  = SignalInput::template makeInputSignal<vDouble>();
-        auto outFn = OutputSink ::template makeSink<vDouble>();
+        auto inFn  = SignalInput::template makeInputSignal<vInternal>();
+        auto outFn = OutputSink ::template makeSink<vInternal>();
 
         _filter.run_unrolled(inFn, outFn, mRate->mFilterLoops, mRate->mFilterRemain);
     }
@@ -189,8 +191,8 @@ struct NovaBiquadBase:
         ParameterType b1Slope = calcSlope( newParameters.b1(), _filter._parameters.b1() );
         ParameterType b2Slope = calcSlope( newParameters.b2(), _filter._parameters.b2() );
 
-        auto inFn  = SignalInput::template makeInputSignal<vDouble>();
-        auto outFn = OutputSink ::template makeSink<vDouble>();
+        auto inFn  = SignalInput::template makeInputSignal<vInternal>();
+        auto outFn = OutputSink ::template makeSink<vInternal>();
 
         _filter.run_unrolled(inFn, outFn, mRate->mFilterLoops, mRate->mFilterRemain,
                              a0Slope, a1Slope, a2Slope, b1Slope, b2Slope );
@@ -427,7 +429,7 @@ struct DesignAPF
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 2nd order, 2-channel
+// 2nd order, n-channel
 
 #define DEFINED_2ND_ORDER_FILTERS(Chans)            \
     struct NovaLowPass##Chans:                      \
@@ -507,14 +509,12 @@ struct DesignAPF
 DEFINED_2ND_ORDER_FILTERS(1)
 DEFINED_2ND_ORDER_FILTERS(2)
 DEFINED_2ND_ORDER_FILTERS(4)
-//DEFINED_2ND_ORDER_FILTERS(8)
 
 
 
 DEFINE_XTORS(NovaIntegrator1)
 DEFINE_XTORS(NovaIntegrator2)
 DEFINE_XTORS(NovaIntegrator4)
-//DEFINE_XTORS(NovaIntegrator8)
 
 
 PluginLoad(NovaFilters)
@@ -524,7 +524,6 @@ PluginLoad(NovaFilters)
     DefineSimpleUnit(NovaIntegrator1);
     DefineSimpleUnit(NovaIntegrator2);
     DefineSimpleUnit(NovaIntegrator4);
-//    DefineSimpleUnit(NovaIntegrator8);
 
 #define REGISTER_BIQUADS(Chans)                         \
     DefineSimpleUnit(NovaLowPass##Chans);               \
@@ -542,5 +541,4 @@ PluginLoad(NovaFilters)
     REGISTER_BIQUADS(1);
     REGISTER_BIQUADS(2);
     REGISTER_BIQUADS(4);
-//    REGISTER_BIQUADS(8);
 }
