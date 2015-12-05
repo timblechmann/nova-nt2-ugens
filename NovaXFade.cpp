@@ -109,7 +109,10 @@ struct NovaXFade:
 
     NovaXFade()
     {
-        setVectorCalcFunction< NovaXFade, vector_type >( 2, 3 );
+        if( LevelInput::scalarRate() && LevelInput::readInput() == 1.f )
+            setVectorCalcFunction< NovaXFade, vector_type >( 2 );
+        else
+            setVectorCalcFunction< NovaXFade, vector_type >( 2, 3 );
     }
 
     template <typename VectorType, typename ControlSignature>
@@ -200,6 +203,61 @@ struct NovaXFade:
             auto levelGain = levelFn();
             auto leftGain  = panGains[0] * levelGain;
             auto rightGain = panGains[1] * levelGain;
+
+            loop( inNumSamples / vector_size, [&] {
+                sink( leftGain * leftFn() + rightGain * rightFn() );
+            });
+        }
+    }
+
+    // level = 1
+    template <typename VectorType>
+    void next(int inNumSamples, control_signature_k)
+    {
+        if( PanInput::changed() ) {
+            auto panFn = PanInput::template makeRampSignal<VectorType>();
+            next<VectorType, calc_FullRate>( panFn, inNumSamples );
+        } else {
+            next<VectorType>( inNumSamples, control_signature_i() );
+        }
+    }
+
+    template <typename VectorType>
+    void next(int inNumSamples, control_signature_i)
+    {
+        auto panFn = PanInput::template makeScalarInputSignal<VectorType>();
+        next<VectorType, calc_BufRate>( panFn, inNumSamples );
+    }
+
+
+    template <typename VectorType>
+    void next(int inNumSamples, control_signature_a)
+    {
+        auto panFn = PanInput::template makeAudioInputSignal<VectorType>();
+        next<VectorType, calc_BufRate>( panFn, inNumSamples );
+    }
+
+    template <typename VectorType, int parameterRate, typename PanFn>
+    void next( PanFn && panFn, int inNumSamples )
+    {
+        const int vector_size = boost::simd::meta::cardinal_of<VectorType>::value;
+
+        auto leftFn     = LeftInput:: template makeInputSignal<VectorType>();
+        auto rightFn    = RightInput::template makeInputSignal<VectorType>();
+        auto sink       = OutputSink::template makeSink<VectorType>();
+
+        if( parameterRate == calc_FullRate ) {
+            loop( inNumSamples / vector_size, [&] {
+                auto panGains  = panFn();
+                auto leftGain  = panGains[0];
+                auto rightGain = panGains[1];
+
+                sink( leftGain * leftFn() + rightGain * rightFn() );
+            });
+        } else {
+            auto panGains  = panFn();
+            auto leftGain  = panGains[0];
+            auto rightGain = panGains[1];
 
             loop( inNumSamples / vector_size, [&] {
                 sink( leftGain * leftFn() + rightGain * rightFn() );
