@@ -263,9 +263,9 @@ protected:
     const UGenClass * asUGen() const { return static_cast<const UGenClass*>(this); }
 
 public:
-    bool audioRate()   const         { return asUGen()->IsAudioRateIn(   InputIndex );  }
-    bool controlRate() const         { return asUGen()->IsControlRateIn( InputIndex );  }
-    bool scalarRate()  const         { return asUGen()->IsScalarRateIn(   InputIndex ); }
+    bool audioRate()   const         { return asUGen()->isAudioRateIn(   InputIndex );  }
+    bool controlRate() const         { return asUGen()->isControlRateIn( InputIndex );  }
+    bool scalarRate()  const         { return asUGen()->isScalarRateIn(  InputIndex );  }
 
     float slopeFactor() const        { return asUGen()->mRate->mSlopeFactor;            }
 
@@ -678,6 +678,8 @@ struct ControlInput:
     SlopedInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>,
     SignalInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>
 {
+    static const size_t index = InputIndex;
+
     /* audio rate input */
     template <typename OutputType>
     auto makeAudioInputSignal()
@@ -698,6 +700,13 @@ struct ControlInput:
     {
         return SlopedInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template makeScalarInputSignal<OutputType>();
     }
+
+    template< typename OutputType >
+    auto readInputs( int sampleIndex )
+    {
+        return SignalInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>::template readInputs<OutputType>( sampleIndex );
+    }
+
 };
 
 
