@@ -55,7 +55,7 @@ foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator Nov
   target_link_libraries( ${plugin}_supernova NT2)
 endforeach()
 
-add_scclass(NovaNT2UGens sc/NovaNT2UGens.sc)
+add_scclass(NovaNT2UGens sc/NovaNT2UGens.sc sc/NovaXFade.sc sc/NovaSaturators.sc)
 
 
 ##########
