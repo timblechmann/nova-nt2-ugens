@@ -26,6 +26,10 @@
 
 #include <boost/simd/include/pack.hpp>
 #include <boost/simd/constant/constants/half.hpp>
+#include <boost/simd/constant/constants/one.hpp>
+#include <boost/simd/constant/constants/pi.hpp>
+
+#include <dsp/tan_approximation.hpp>
 
 using nova::NovaUnit;
 
@@ -39,10 +43,12 @@ struct EqualPowerPanning
     template <typename SampleType>
     auto operator() (SampleType input)
     {
-        SampleType arg = input * boost::simd::Half<SampleType>() * boost::simd::Pi<SampleType>();
+        SampleType piOver4 = boost::simd::Pi<SampleType>() * 0.25f;
+        SampleType arg = input * piOver4;
         SampleType leftGain, rightGain;
-        leftGain  = approximations::parabol_cos( arg );
-        rightGain = approximations::parabol_sin( arg );
+
+        leftGain  = approximations::sin<SampleType>( piOver4 - input*piOver4, approximations::SinFast() );
+        rightGain = approximations::sin<SampleType>( piOver4 + input*piOver4, approximations::SinFast() );
 
         typedef detail::ArithmeticArray<SampleType, 2> Result;
 
