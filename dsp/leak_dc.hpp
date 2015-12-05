@@ -63,7 +63,7 @@ struct LeakDC
         using namespace boost::simd;
 
         typedef decltype(dspContext.sampleRate()) SampleRateType;
-        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.1f), dspContext.sampleRate() * (SampleRateType)(0.5));
+        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.01f), dspContext.sampleRate() * (SampleRateType)(0.5));
         auto parameter = nt2::exp( - Two<SampleRateType>() * Pi<SampleRateType>() * cutoffFreq * (SampleRateType)dspContext.sampleDur() );
 
         return ParameterState{ parameter };

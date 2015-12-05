@@ -180,6 +180,10 @@ struct ArithmeticArray
     ArithmeticArray( ArithmeticArray const & rhs )             = default;
     ArithmeticArray & operator=( ArithmeticArray const & rhs ) = default;
 
+    ArithmeticArray( std::initializer_list<Type> const & init )
+    {
+        std::copy( init.begin(), init.end(), data.begin() );
+    }
 
     template <typename RhsType>
     ArithmeticArray( ArithmeticArray<RhsType, N> const & rhs )
@@ -671,6 +675,36 @@ struct SignalInput:
         };
     }
 };
+
+template <typename UGenClass, size_t InputIndex, size_t NumberOfChannels>
+struct SignalInput< UGenClass, InputIndex, NumberOfChannels, detail::Identity>
+{
+    template< typename OutputType >
+    auto readInputs( int sampleIndex )
+    {
+        static_assert( NumberOfChannels == boost::simd::meta::cardinal_of<OutputType>::value, "failed" );
+
+        return detail::packGenerator<NumberOfChannels>::template generate<OutputType>( [=, channelIndex = 0] () mutable {
+            auto * input = static_cast<UGenClass*>(this)->SCUnit::in( InputIndex + channelIndex++ );
+            return input[sampleIndex];
+        });
+    }
+
+    template< typename OutputType >
+    auto readInputs()
+    {
+        return readInputs<OutputType>( 0 );
+    }
+
+    template< typename OutputType >
+    auto makeInputSignal()
+    {
+        return [=, sampleIndex = 0] () mutable {
+            return readInputs<OutputType>( sampleIndex++ );
+        };
+    }
+};
+
 
 
 template <typename UGenClass, size_t InputIndex, size_t NumberOfChannels, typename InputFunctor = detail::Identity>
