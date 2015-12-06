@@ -80,8 +80,13 @@ struct DiodeLadderFilter:
     static const size_t parameterInputSize  = hasScalarArguments ? 1 : Channels;
 
     typedef typename nova::as_pack<float,  parameterInputSize>::type ParameterType;
+#if 0
     typedef typename nova::as_pack<double, numberOfChannels>::type   InternalType;
     typedef typename nova::as_pack<double, parameterInputSize>::type InternalParameterType;
+#else
+    typedef typename nova::as_pack<float, numberOfChannels>::type   InternalType;
+    typedef typename nova::as_pack<float, parameterInputSize>::type InternalParameterType;
+#endif
 
     static const size_t freqInputIndex = numberOfChannels;
     static const size_t qInputIndex    = freqInputIndex   + parameterInputSize;
@@ -400,8 +405,8 @@ private:
     {
         using namespace boost::simd;
         q = nova::clip( q, Zero<InternalParameterType>(), One<InternalParameterType>() );
-        auto k = 20.0 * q;
-        auto A = 1.0 + 0.5*k; // resonance gain compensation
+        auto k = splat<InternalParameterType>(20.0) * q;
+        auto A = splat<InternalParameterType>(1.0) + splat<InternalParameterType>(0.5)*k; // resonance gain compensation
         return QParameterState{ k, A };
     }
 
