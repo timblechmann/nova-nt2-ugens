@@ -125,10 +125,7 @@ struct TanhDistortion
 
             typedef nova::detail::ArithmeticArray<ResultType, 2> Result;
 
-            Result ret;
-            ret[0] = preGain;
-            ret[1] = postGain;
-            return ret;
+            return Result { preGain, postGain };
         }
 
         template <typename Type>
