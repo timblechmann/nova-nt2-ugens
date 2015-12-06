@@ -432,27 +432,27 @@ PluginLoad(NovaFilters)
     ft = inTable;
     using namespace nova;
 
-    registerUnit<nova::NovaIntegrator<1>> ( ft, "NovaIntegrator"  );
-    registerUnit<nova::NovaIntegrator<2>> ( ft, "NovaIntegrator2" );
-    registerUnit<nova::NovaIntegrator<4>> ( ft, "NovaIntegrator4" );
+    nova::registerUnit<nova::NovaIntegrator<1>> ( ft, "NovaIntegrator"  );
+    nova::registerUnit<nova::NovaIntegrator<2>> ( ft, "NovaIntegrator2" );
+    nova::registerUnit<nova::NovaIntegrator<4>> ( ft, "NovaIntegrator4" );
 
-    registerUnit<NovaBiquadBase<DesignLPF, 1>> (ft, "NovaLowPass"  );
-    registerUnit<NovaBiquadBase<DesignLPF, 2>> (ft, "NovaLowPass2" );
-    registerUnit<NovaBiquadBase<DesignLPF, 4>> (ft, "NovaLowPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignLPF, 1>> (ft, "NovaLowPass"  );
+    nova::registerUnit<NovaBiquadBase<DesignLPF, 2>> (ft, "NovaLowPass2" );
+    nova::registerUnit<NovaBiquadBase<DesignLPF, 4>> (ft, "NovaLowPass4" );
 
-    registerUnit<NovaBiquadBase<DesignHPF, 1>> (ft, "NovaHighPass"  );
-    registerUnit<NovaBiquadBase<DesignHPF, 2>> (ft, "NovaHighPass2" );
-    registerUnit<NovaBiquadBase<DesignHPF, 4>> (ft, "NovaHighPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignHPF, 1>> (ft, "NovaHighPass"  );
+    nova::registerUnit<NovaBiquadBase<DesignHPF, 2>> (ft, "NovaHighPass2" );
+    nova::registerUnit<NovaBiquadBase<DesignHPF, 4>> (ft, "NovaHighPass4" );
 
-    registerUnit<NovaBiquadBase<DesignBPF, 1>> (ft, "NovaBandPass"  );
-    registerUnit<NovaBiquadBase<DesignBPF, 2>> (ft, "NovaBandPass2" );
-    registerUnit<NovaBiquadBase<DesignBPF, 4>> (ft, "NovaBandPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignBPF, 1>> (ft, "NovaBandPass"  );
+    nova::registerUnit<NovaBiquadBase<DesignBPF, 2>> (ft, "NovaBandPass2" );
+    nova::registerUnit<NovaBiquadBase<DesignBPF, 4>> (ft, "NovaBandPass4" );
 
-    registerUnit<NovaBiquadBase<DesignBRF, 1>> (ft, "NovaBandReject"  );
-    registerUnit<NovaBiquadBase<DesignBRF, 2>> (ft, "NovaBandReject2" );
-    registerUnit<NovaBiquadBase<DesignBRF, 4>> (ft, "NovaBandReject4" );
+    nova::registerUnit<NovaBiquadBase<DesignBRF, 1>> (ft, "NovaBandReject"  );
+    nova::registerUnit<NovaBiquadBase<DesignBRF, 2>> (ft, "NovaBandReject2" );
+    nova::registerUnit<NovaBiquadBase<DesignBRF, 4>> (ft, "NovaBandReject4" );
 
-    registerUnit<NovaBiquadBase<DesignAPF, 1>> (ft, "NovaAllPass"  );
-    registerUnit<NovaBiquadBase<DesignAPF, 2>> (ft, "NovaAllPass2" );
-    registerUnit<NovaBiquadBase<DesignAPF, 4>> (ft, "NovaAllPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignAPF, 1>> (ft, "NovaAllPass"  );
+    nova::registerUnit<NovaBiquadBase<DesignAPF, 2>> (ft, "NovaAllPass2" );
+    nova::registerUnit<NovaBiquadBase<DesignAPF, 4>> (ft, "NovaAllPass4" );
 }

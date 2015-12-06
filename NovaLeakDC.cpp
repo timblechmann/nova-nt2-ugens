@@ -120,8 +120,8 @@ PluginLoad(NovaLeakDC)
 
     ft = inTable;
 
-    registerUnit<NovaLeakDC<1>>( ft, "NovaLeakDC"  );
-    registerUnit<NovaLeakDC<2>>( ft, "NovaLeakDC2" );
-    registerUnit<NovaLeakDC<4>>( ft, "NovaLeakDC4" );
-    registerUnit<NovaLeakDC<8>>( ft, "NovaLeakDC8" );
+    nova::registerUnit<NovaLeakDC<1>>( ft, "NovaLeakDC"  );
+    nova::registerUnit<NovaLeakDC<2>>( ft, "NovaLeakDC2" );
+    nova::registerUnit<NovaLeakDC<4>>( ft, "NovaLeakDC4" );
+    nova::registerUnit<NovaLeakDC<8>>( ft, "NovaLeakDC8" );
 }

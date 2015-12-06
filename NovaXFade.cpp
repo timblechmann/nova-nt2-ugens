@@ -308,6 +308,6 @@ PluginLoad(NovaXFade)
     using namespace nova;
     ft = inTable;
 
-    registerUnit< NovaXFade<PanningLaws::EqualPowerPanning> >( ft, "NovaXFade" );
-    registerUnit< NovaXFade<PanningLaws::LinearPanning> >    ( ft, "NovaLinXFade" );
+    nova::registerUnit< NovaXFade<PanningLaws::EqualPowerPanning> >( ft, "NovaXFade" );
+    nova::registerUnit< NovaXFade<PanningLaws::LinearPanning> >    ( ft, "NovaLinXFade" );
 }

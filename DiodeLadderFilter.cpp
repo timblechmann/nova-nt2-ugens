@@ -428,7 +428,7 @@ PluginLoad(NovaFilters)
 
     ft = inTable;
 
-    registerUnit< nova::DiodeLadderFilter<1, true> >( ft, "DiodeLadderFilter"  );
-    registerUnit< nova::DiodeLadderFilter<2, true> >( ft, "DiodeLadderFilter2" );
-    registerUnit< nova::DiodeLadderFilter<4, true> >( ft, "DiodeLadderFilter4" );
+    nova::registerUnit< nova::DiodeLadderFilter<1, true> >( ft, "DiodeLadderFilter"  );
+    nova::registerUnit< nova::DiodeLadderFilter<2, true> >( ft, "DiodeLadderFilter2" );
+    nova::registerUnit< nova::DiodeLadderFilter<4, true> >( ft, "DiodeLadderFilter4" );
 }

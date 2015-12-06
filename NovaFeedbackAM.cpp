@@ -55,12 +55,12 @@ PluginLoad(FBAM)
 
     ft = inTable;
 
-    registerUnit< nova::NovaFeedbackAM<1, true> >( ft, "NovaFeedbackAM"  );
-    registerUnit< nova::NovaFeedbackAM<2, true> >( ft, "NovaFeedbackAM2"  );
-    registerUnit< nova::NovaFeedbackAM<4, true> >( ft, "NovaFeedbackAM4"  );
-    registerUnit< nova::NovaFeedbackAM<8, true> >( ft, "NovaFeedbackAM8"  );
+    nova::registerUnit< nova::NovaFeedbackAM<1, true> >( ft, "NovaFeedbackAM"  );
+    nova::registerUnit< nova::NovaFeedbackAM<2, true> >( ft, "NovaFeedbackAM2"  );
+    nova::registerUnit< nova::NovaFeedbackAM<4, true> >( ft, "NovaFeedbackAM4"  );
+    nova::registerUnit< nova::NovaFeedbackAM<8, true> >( ft, "NovaFeedbackAM8"  );
 
-    registerUnit< nova::NovaFeedbackAM<2, false> >( ft, "NovaFeedbackAM2_2" );
-    registerUnit< nova::NovaFeedbackAM<4, false> >( ft, "NovaFeedbackAM4_4" );
-    registerUnit< nova::NovaFeedbackAM<8, false> >( ft, "NovaFeedbackAM8_8" );
+    nova::registerUnit< nova::NovaFeedbackAM<2, false> >( ft, "NovaFeedbackAM2_2" );
+    nova::registerUnit< nova::NovaFeedbackAM<4, false> >( ft, "NovaFeedbackAM4_4" );
+    nova::registerUnit< nova::NovaFeedbackAM<8, false> >( ft, "NovaFeedbackAM8_8" );
 }
