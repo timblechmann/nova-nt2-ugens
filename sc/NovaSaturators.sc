@@ -25,5 +25,11 @@ FasterTanhSaturation : HyperbolSaturation {
 NovaLinearWaveFolder : HyperbolSaturation {
 }
 
+NovaSinWaveFolder : HyperbolSaturation {
+}
+
+NovaSinWaveFolderRaw : HyperbolSaturation {
+}
+
 NovaLinearWaveWrapper : HyperbolSaturation {
 }

@@ -380,3 +380,26 @@ DiodeLadderFilter4_4 : PureMultiOutUGen {
 
     checkInputs { ^this.checkNInputs(4) }
 }
+
+
+//////////////////////
+
+NovaLowPassSVF : Filter {
+    *ar { |sig, freq = 880, res = 0|
+        ^this.multiNew('audio', sig, freq, res)
+    }
+}
+
+NovaHighPassSVF   : NovaLowPassSVF {}
+NovaBandPassSVF   : NovaLowPassSVF {}
+NovaBandRejectSVF : NovaLowPassSVF {}
+NovaPeakSVF       : NovaLowPassSVF {}
+
+NovaLowShelfSVF : Filter {
+    *ar { |sig, freq = 880, amp = 1, res = 0|
+        ^this.multiNew('audio', sig, freq, amp, res)
+    }
+}
+
+NovaHighShelfSVF  : NovaLowShelfSVF {}
+NovaEqSVF         : NovaLowShelfSVF {}
