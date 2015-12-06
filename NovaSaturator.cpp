@@ -33,6 +33,7 @@
 
 #include <approximations/tanh.hpp>
 #include <approximations/pow.hpp>
+#include <approximations/sin.hpp>
 
 namespace {
 
@@ -150,7 +151,7 @@ struct TanhDistortion
         case computeFast:    return nova::approximations::fast_tanh( x );
 
         case computeRaw:     return nova::approximations::faster_tanh( x );
-        default:          assert(false); return x;
+        default:             assert(false); return x;
         }
     }
 };
@@ -177,6 +178,27 @@ struct FoldDistortion
     }
 };
 
+template <int Precision>
+struct SinFoldDistortion
+{
+    typedef TrivialInputFunctor InputFunctor;
+
+    template <typename SampleType, typename ScaleType>
+    static BOOST_FORCEINLINE SampleType doDistort(SampleType sig, ScaleType scale)
+    {
+        SampleType folded = fold< SampleType >( SampleType(sig * scale) ) * (boost::simd::Pio_2<float>() );
+
+        using namespace nova::approximations;
+
+        switch( Precision ) {
+        case computeFast:    return sin( folded, SinFast()    );
+//        case computePrecise: return sin( folded, SinPrecise() );
+        case computeRaw:     return sin( folded, SinFaster()  );
+
+        default: assert(false);
+        }
+    }
+};
 
 template <typename SampleType>
 inline SampleType wrap(SampleType x)
@@ -319,6 +341,8 @@ typedef SaturationBase<TanhDistortion<computeFast>>    FastTanhSaturation;
 typedef SaturationBase<TanhDistortion<computeRaw>>     FasterTanhSaturation;
 
 typedef SaturationBase<FoldDistortion>                 NovaLinearWaveFolder;
+typedef SaturationBase<SinFoldDistortion<computeFast>> NovaSinWaveFolder;
+typedef SaturationBase<SinFoldDistortion<computeRaw>>  NovaSinWaveFolderRaw;
 typedef SaturationBase<WrapDistortion>                 NovaLinearWaveWrapper;
 
 
@@ -329,6 +353,8 @@ DEFINE_XTORS(TanhSaturation)
 DEFINE_XTORS(FastTanhSaturation)
 DEFINE_XTORS(FasterTanhSaturation)
 DEFINE_XTORS(NovaLinearWaveFolder)
+DEFINE_XTORS(NovaSinWaveFolder)
+DEFINE_XTORS(NovaSinWaveFolderRaw)
 DEFINE_XTORS(NovaLinearWaveWrapper)
 
 }
@@ -343,5 +369,7 @@ PluginLoad(NovaSaturators)
     NovaDefineUnit(FastTanhSaturation);
     NovaDefineUnit(FasterTanhSaturation);
     NovaDefineUnit(NovaLinearWaveFolder);
+    NovaDefineUnit(NovaSinWaveFolder);
+    NovaDefineUnit(NovaSinWaveFolderRaw);
     NovaDefineUnit(NovaLinearWaveWrapper);
 }
