@@ -5,6 +5,7 @@
 #include <approximations/sin.hpp>
 #include <approximations/cos.hpp>
 #include <approximations/tan.hpp>
+#include <approximations/parabol_sine.hpp>
 
 using boost::math::constants::pi;
 
@@ -44,6 +45,13 @@ TEST(sin_approximations, sin_faster)
     runTestOnFloatRange( -pi, pi, 1000, [](float x) {  ASSERT_NEAR( na::sin( x, na::SinFaster()  ), std::sin(x), 0.001 ); });
 }
 
+TEST(sin_approximations, sin_parabol)
+{
+    float pi = boost::math::float_constants::pi;
+    namespace na = nova::approximations;
+
+    runTestOnFloatRange( -pi, pi, 1000, [](float x) {  ASSERT_NEAR( na::parabol_sin( x ), std::sin(x), 0.0011 ); });
+}
 
 //////////////
 // cos

@@ -53,9 +53,9 @@ Type parabol_sin( Type x )
     const Type B =  Four<Type>() / Pi<Type>();
     const Type C = -Four<Type>() / ( Pi<Type>() * Pi<Type>() );
 
-    const Type y = B * x + C * x * abs(x);
+    const Type y = (B + C * abs(x) ) * x;
 
-    const Type P (0.225);
+    const Type P = splat<Type>(0.225f);
 
     return P * (y * abs(y) - y) + y;   // Q * y + P * y * abs(y)
 }

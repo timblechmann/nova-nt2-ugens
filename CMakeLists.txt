@@ -91,3 +91,16 @@ add_executable( tests tests/approximation_tests.cpp )
 target_link_libraries( tests gtest NT2 )
 set_target_properties( tests PROPERTIES CXX_STANDARD 14)
 target_compile_definitions( tests PUBLIC BOOST_NO_AUTO_PTR )
+
+
+###########
+# benchmark
+
+add_executable( benchmark tests/approximation_benchmark.cpp )
+target_link_libraries( benchmark NT2 )
+set_target_properties( benchmark PROPERTIES CXX_STANDARD 14)
+target_compile_definitions( benchmark PUBLIC BOOST_NO_AUTO_PTR )
+
+if( NATIVE )
+  target_compile_options( benchmark PUBLIC -march=native )
+endif()

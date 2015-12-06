@@ -127,7 +127,7 @@ BOOST_FORCEINLINE auto sin( Arg x, SinFaster ) -> Arg
     const Arg q    = splat<Arg>(0.77633023248007499f);
     const Arg plit = splat<Arg>(0.22308510060189463f);
 
-    const Arg qpprox = fourOverPi * x - fourOverPiSq * x * boost::simd::abs( x );
+    const Arg qpprox = (fourOverPi - fourOverPiSq * boost::simd::abs( x ) ) * x;
 
     const Arg p    = bitwise_or( bitofsign( x ), plit );
 
