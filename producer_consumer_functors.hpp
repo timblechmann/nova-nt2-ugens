@@ -22,8 +22,8 @@
 #include "SC_PlugIn.hpp"
 
 #include "dsp/utils.hpp"
+#include <dsp/arithmeticarray.hpp>
 
-#include <array>
 #include <tuple>
 
 #include <boost/range/irange.hpp>
@@ -169,70 +169,6 @@ struct Identity {
     struct State {
         typedef Type type;
     };
-};
-
-template <typename Type, int N>
-struct ArithmeticArray
-{
-    typedef Type value_type;
-
-    ArithmeticArray()                                          = default;
-    ArithmeticArray( ArithmeticArray const & rhs )             = default;
-    ArithmeticArray & operator=( ArithmeticArray const & rhs ) = default;
-
-    ArithmeticArray( std::initializer_list<Type> const & init )
-    {
-        std::copy( init.begin(), init.end(), data.begin() );
-    }
-
-    template <typename RhsType>
-    ArithmeticArray( ArithmeticArray<RhsType, N> const & rhs )
-    {
-        for( int i : boost::irange(0, N) )
-            data[i] = rhs[i];
-    }
-
-    Type const & get(size_t n) { return data[n]; }
-
-    ArithmeticArray operator+(ArithmeticArray const & rhs) const
-    {
-        ArithmeticArray ret;
-        for( int i : boost::irange(0, N) )
-            ret[i] = data[i] + rhs[i];
-        return ret;
-    }
-
-    template <typename RhsType>
-    ArithmeticArray & operator+=(ArithmeticArray<RhsType, N> const & rhs)
-    {
-        ArithmeticArray ret;
-        for( int i : boost::irange(0, N) )
-            data[i] += rhs[i];
-        return *this;
-    }
-
-    ArithmeticArray operator-(ArithmeticArray const & rhs) const
-    {
-        ArithmeticArray ret;
-        for( int i : boost::irange(0, N) )
-            ret[i] = data[i] - rhs[i];
-        return ret;
-    }
-
-    template <typename ArgType>
-    ArithmeticArray operator*(ArgType const & value) const
-    {
-        ArithmeticArray ret;
-        for( int i : boost::irange(0, N) )
-            ret[i] = data[i] * value;
-        return ret;
-    }
-
-    Type & operator[](size_t n)             { return data[n]; }
-    Type const & operator[](size_t n) const { return data[n]; }
-
-private:
-    std::array<Type, N> data;
 };
 
 }
