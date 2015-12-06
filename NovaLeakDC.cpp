@@ -114,25 +114,14 @@ struct NovaLeakDC:
 
 }
 
-typedef nova::NovaLeakDC<1> NovaLeakDC;
-typedef nova::NovaLeakDC<2> NovaLeakDC2;
-typedef nova::NovaLeakDC<4> NovaLeakDC4;
-typedef nova::NovaLeakDC<8> NovaLeakDC8;
-
-
-
-
-DEFINE_XTORS(NovaLeakDC )
-DEFINE_XTORS(NovaLeakDC2)
-DEFINE_XTORS(NovaLeakDC4)
-DEFINE_XTORS(NovaLeakDC8)
-
-
 PluginLoad(NovaLeakDC)
 {
+    using namespace nova;
+
     ft = inTable;
-    DefineSimpleUnit(NovaLeakDC );
-    DefineSimpleUnit(NovaLeakDC2);
-    DefineSimpleUnit(NovaLeakDC4);
-    DefineSimpleUnit(NovaLeakDC8);
+
+    registerUnit<NovaLeakDC<1>>( ft, "NovaLeakDC"  );
+    registerUnit<NovaLeakDC<2>>( ft, "NovaLeakDC2" );
+    registerUnit<NovaLeakDC<4>>( ft, "NovaLeakDC4" );
+    registerUnit<NovaLeakDC<8>>( ft, "NovaLeakDC8" );
 }

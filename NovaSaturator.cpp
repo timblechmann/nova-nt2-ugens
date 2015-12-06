@@ -331,45 +331,24 @@ struct SaturationBase:
     }
 };
 
-
-typedef SaturationBase<PowDistortion<computeFast>>     PowSaturation;
-typedef SaturationBase<HyperbolDistortion>             HyperbolSaturation;
-typedef SaturationBase<ParabolDistortion>              ParabolSaturation;
-
-typedef SaturationBase<TanhDistortion<computePrecise>> TanhSaturation;
-typedef SaturationBase<TanhDistortion<computeFast>>    FastTanhSaturation;
-typedef SaturationBase<TanhDistortion<computeRaw>>     FasterTanhSaturation;
-
-typedef SaturationBase<FoldDistortion>                 NovaLinearWaveFolder;
-typedef SaturationBase<SinFoldDistortion<computeFast>> NovaSinWaveFolder;
-typedef SaturationBase<SinFoldDistortion<computeRaw>>  NovaSinWaveFolderRaw;
-typedef SaturationBase<WrapDistortion>                 NovaLinearWaveWrapper;
-
-
-DEFINE_XTORS(HyperbolSaturation)
-DEFINE_XTORS(ParabolSaturation)
-DEFINE_XTORS(PowSaturation)
-DEFINE_XTORS(TanhSaturation)
-DEFINE_XTORS(FastTanhSaturation)
-DEFINE_XTORS(FasterTanhSaturation)
-DEFINE_XTORS(NovaLinearWaveFolder)
-DEFINE_XTORS(NovaSinWaveFolder)
-DEFINE_XTORS(NovaSinWaveFolderRaw)
-DEFINE_XTORS(NovaLinearWaveWrapper)
-
 }
 
 PluginLoad(NovaSaturators)
 {
+    using namespace nova;
+
     ft = inTable;
-    NovaDefineUnit(HyperbolSaturation);
-    NovaDefineUnit(ParabolSaturation);
-    NovaDefineUnit(PowSaturation);
-    NovaDefineUnit(TanhSaturation);
-    NovaDefineUnit(FastTanhSaturation);
-    NovaDefineUnit(FasterTanhSaturation);
-    NovaDefineUnit(NovaLinearWaveFolder);
-    NovaDefineUnit(NovaSinWaveFolder);
-    NovaDefineUnit(NovaSinWaveFolderRaw);
-    NovaDefineUnit(NovaLinearWaveWrapper);
+
+    registerUnit<SaturationBase<PowDistortion<computeFast>>>( ft, "PowSaturation" );
+    registerUnit<SaturationBase<HyperbolDistortion>>        ( ft, "HyperbolSaturation" );
+    registerUnit<SaturationBase<ParabolDistortion>>         ( ft, "ParabolSaturation" );
+
+    registerUnit<SaturationBase<TanhDistortion<computePrecise>>>( ft, "TanhSaturation" );
+    registerUnit<SaturationBase<TanhDistortion<computeFast>>>   ( ft, "FastTanhSaturation" );
+    registerUnit<SaturationBase<TanhDistortion<computeRaw>>>    ( ft, "FasterTanhSaturation" );
+
+    registerUnit<SaturationBase<FoldDistortion>>                 ( ft, "NovaLinearWaveFolder" );
+    registerUnit<SaturationBase<SinFoldDistortion<computeFast>>> ( ft, "NovaSinWaveFolder" );
+    registerUnit<SaturationBase<SinFoldDistortion<computeRaw>>>  ( ft, "NovaSinWaveFolderRaw" );
+    registerUnit<SaturationBase<WrapDistortion>>                 ( ft, "NovaLinearWaveWrapper" );
 }

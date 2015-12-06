@@ -417,21 +417,13 @@ private:
 
 }
 
-typedef nova::DiodeLadderFilter<1, true> DiodeLadderFilter;
-typedef nova::DiodeLadderFilter<2, true> DiodeLadderFilter2;
-typedef nova::DiodeLadderFilter<4, true> DiodeLadderFilter4;
-//typedef nova::DiodeLadderFilter<4, false> DiodeLadderFilter4_4;
-
-DEFINE_XTORS(DiodeLadderFilter)
-DEFINE_XTORS(DiodeLadderFilter2)
-DEFINE_XTORS(DiodeLadderFilter4)
-//DEFINE_XTORS(DiodeLadderFilter4_4)
-
 PluginLoad(NovaFilters)
 {
+    using namespace nova;
+
     ft = inTable;
-    DefineSimpleUnit(DiodeLadderFilter);
-    DefineSimpleUnit(DiodeLadderFilter2);
-    DefineSimpleUnit(DiodeLadderFilter4);
-//    DefineSimpleUnit(DiodeLadderFilter4_4);
+
+    registerUnit< nova::DiodeLadderFilter<1, true> >( ft, "DiodeLadderFilter"  );
+    registerUnit< nova::DiodeLadderFilter<2, true> >( ft, "DiodeLadderFilter2" );
+    registerUnit< nova::DiodeLadderFilter<4, true> >( ft, "DiodeLadderFilter4" );
 }

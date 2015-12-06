@@ -303,15 +303,11 @@ struct NovaXFade:
 
 }
 
-typedef nova::NovaXFade<nova::PanningLaws::EqualPowerPanning> NovaXFade;
-typedef nova::NovaXFade<nova::PanningLaws::LinearPanning>     NovaLinXFade;
-
-DEFINE_XTORS(NovaXFade)
-DEFINE_XTORS(NovaLinXFade)
-
 PluginLoad(NovaXFade)
 {
+    using namespace nova;
     ft = inTable;
-    DefineSimpleUnit(NovaXFade);
-    DefineSimpleUnit(NovaLinXFade);
+
+    registerUnit< NovaXFade<PanningLaws::EqualPowerPanning> >( ft, "NovaXFade" );
+    registerUnit< NovaXFade<PanningLaws::LinearPanning> >    ( ft, "NovaLinXFade" );
 }

@@ -427,118 +427,32 @@ struct DesignAPF
     }
 };
 
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// 2nd order, n-channel
-
-#define DEFINED_2ND_ORDER_FILTERS(Chans)            \
-    struct NovaLowPass##Chans:                      \
-        NovaBiquadBase<DesignLPF, Chans>            \
-    {                                               \
-        NovaLowPass##Chans() {}                     \
-    };                                              \
-                                                    \
-    struct NovaHighPass##Chans:                     \
-        NovaBiquadBase<DesignHPF, Chans>            \
-    {                                               \
-        NovaHighPass##Chans() {}                    \
-    };                                              \
-                                                    \
-    struct NovaBandPass##Chans:                     \
-        NovaBiquadBase<DesignBPF, Chans>            \
-    {                                               \
-        NovaBandPass##Chans() {}                    \
-    };                                              \
-                                                    \
-    struct NovaBandReject##Chans:                   \
-        NovaBiquadBase<DesignBRF, Chans>            \
-    {                                               \
-        NovaBandReject##Chans() {}                  \
-    };                                              \
-                                                    \
-    struct NovaAllPass##Chans:                      \
-        NovaBiquadBase<DesignAPF, Chans>            \
-    {                                               \
-        NovaAllPass##Chans() {}                     \
-    };                                              \
-                                                    \
-    struct NovaLowPass##Chans##_##Chans:            \
-        NovaBiquadBase<DesignLPF, Chans, false>     \
-    {                                               \
-        NovaLowPass##Chans##_##Chans() {}           \
-    };                                              \
-                                                    \
-    struct NovaHighPass##Chans##_##Chans:           \
-        NovaBiquadBase<DesignHPF, Chans, false>     \
-    {                                               \
-        NovaHighPass##Chans##_##Chans() {}          \
-    };                                              \
-                                                    \
-    struct NovaBandPass##Chans##_##Chans:           \
-        NovaBiquadBase<DesignBPF, Chans, false>     \
-    {                                               \
-        NovaBandPass##Chans##_##Chans() {}          \
-    };                                              \
-                                                    \
-    struct NovaBandReject##Chans##_##Chans:         \
-        NovaBiquadBase<DesignBRF, Chans, false>     \
-    {                                               \
-        NovaBandReject##Chans##_##Chans() {}        \
-    };                                              \
-                                                    \
-    struct NovaAllPass##Chans##_##Chans:            \
-        NovaBiquadBase<DesignAPF, Chans, false>     \
-    {                                               \
-        NovaAllPass##Chans##_##Chans() {}           \
-    };                                              \
-                                                    \
-    DEFINE_XTORS(NovaLowPass##Chans)                \
-    DEFINE_XTORS(NovaHighPass##Chans)               \
-    DEFINE_XTORS(NovaBandPass##Chans)               \
-    DEFINE_XTORS(NovaBandReject##Chans)             \
-    DEFINE_XTORS(NovaAllPass##Chans)                \
-                                                    \
-    DEFINE_XTORS(NovaLowPass##Chans##_##Chans)      \
-    DEFINE_XTORS(NovaHighPass##Chans##_##Chans)     \
-    DEFINE_XTORS(NovaBandPass##Chans##_##Chans)     \
-    DEFINE_XTORS(NovaBandReject##Chans##_##Chans)   \
-    DEFINE_XTORS(NovaAllPass##Chans##_##Chans)
-
-
-
-DEFINED_2ND_ORDER_FILTERS(1)
-DEFINED_2ND_ORDER_FILTERS(2)
-DEFINED_2ND_ORDER_FILTERS(4)
-
-
-
-DEFINE_XTORS(NovaIntegrator1)
-DEFINE_XTORS(NovaIntegrator2)
-DEFINE_XTORS(NovaIntegrator4)
-
-
 PluginLoad(NovaFilters)
 {
     ft = inTable;
+    using namespace nova;
 
-    DefineSimpleUnit(NovaIntegrator1);
-    DefineSimpleUnit(NovaIntegrator2);
-    DefineSimpleUnit(NovaIntegrator4);
+    registerUnit<nova::NovaIntegrator<1>> ( ft, "NovaIntegrator"  );
+    registerUnit<nova::NovaIntegrator<2>> ( ft, "NovaIntegrator2" );
+    registerUnit<nova::NovaIntegrator<4>> ( ft, "NovaIntegrator4" );
 
-#define REGISTER_BIQUADS(Chans)                         \
-    DefineSimpleUnit(NovaLowPass##Chans);               \
-    DefineSimpleUnit(NovaHighPass##Chans);              \
-    DefineSimpleUnit(NovaBandPass##Chans);              \
-    DefineSimpleUnit(NovaBandReject##Chans);            \
-    DefineSimpleUnit(NovaAllPass##Chans);               \
-    \
-    DefineSimpleUnit(NovaLowPass##Chans##_##Chans);     \
-    DefineSimpleUnit(NovaHighPass##Chans##_##Chans);    \
-    DefineSimpleUnit(NovaBandPass##Chans##_##Chans);    \
-    DefineSimpleUnit(NovaBandReject##Chans##_##Chans);  \
-    DefineSimpleUnit(NovaAllPass##Chans##_##Chans);
+    registerUnit<NovaBiquadBase<DesignLPF, 1>> (ft, "NovaLowPass"  );
+    registerUnit<NovaBiquadBase<DesignLPF, 2>> (ft, "NovaLowPass2" );
+    registerUnit<NovaBiquadBase<DesignLPF, 4>> (ft, "NovaLowPass4" );
 
-    REGISTER_BIQUADS(1);
-    REGISTER_BIQUADS(2);
-    REGISTER_BIQUADS(4);
+    registerUnit<NovaBiquadBase<DesignHPF, 1>> (ft, "NovaHighPass"  );
+    registerUnit<NovaBiquadBase<DesignHPF, 2>> (ft, "NovaHighPass2" );
+    registerUnit<NovaBiquadBase<DesignHPF, 4>> (ft, "NovaHighPass4" );
+
+    registerUnit<NovaBiquadBase<DesignBPF, 1>> (ft, "NovaBandPass"  );
+    registerUnit<NovaBiquadBase<DesignBPF, 2>> (ft, "NovaBandPass2" );
+    registerUnit<NovaBiquadBase<DesignBPF, 4>> (ft, "NovaBandPass4" );
+
+    registerUnit<NovaBiquadBase<DesignBRF, 1>> (ft, "NovaBandReject"  );
+    registerUnit<NovaBiquadBase<DesignBRF, 2>> (ft, "NovaBandReject2" );
+    registerUnit<NovaBiquadBase<DesignBRF, 4>> (ft, "NovaBandReject4" );
+
+    registerUnit<NovaBiquadBase<DesignAPF, 1>> (ft, "NovaAllPass"  );
+    registerUnit<NovaBiquadBase<DesignAPF, 2>> (ft, "NovaAllPass2" );
+    registerUnit<NovaBiquadBase<DesignAPF, 4>> (ft, "NovaAllPass4" );
 }

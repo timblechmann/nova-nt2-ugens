@@ -49,33 +49,18 @@ struct NovaFeedbackAM:
 }
 }
 
-typedef nova::NovaFeedbackAM<1, true> NovaFeedbackAM;
-typedef nova::NovaFeedbackAM<2, true> NovaFeedbackAM2;
-typedef nova::NovaFeedbackAM<4, true> NovaFeedbackAM4;
-typedef nova::NovaFeedbackAM<8, true> NovaFeedbackAM8;
-
-typedef nova::NovaFeedbackAM<2> NovaFeedbackAM2_2;
-typedef nova::NovaFeedbackAM<4> NovaFeedbackAM4_4;
-typedef nova::NovaFeedbackAM<8> NovaFeedbackAM8_8;
-
-DEFINE_XTORS(NovaFeedbackAM)
-DEFINE_XTORS(NovaFeedbackAM2)
-DEFINE_XTORS(NovaFeedbackAM4)
-DEFINE_XTORS(NovaFeedbackAM8)
-
-DEFINE_XTORS(NovaFeedbackAM2_2)
-DEFINE_XTORS(NovaFeedbackAM4_4)
-DEFINE_XTORS(NovaFeedbackAM8_8)
-
 PluginLoad(FBAM)
 {
-    ft = inTable;
-    DefineSimpleUnit(NovaFeedbackAM);
-    DefineSimpleUnit(NovaFeedbackAM2);
-    DefineSimpleUnit(NovaFeedbackAM4);
-    DefineSimpleUnit(NovaFeedbackAM8);
+    using namespace nova;
 
-    DefineSimpleUnit(NovaFeedbackAM2_2);
-    DefineSimpleUnit(NovaFeedbackAM4_4);
-    DefineSimpleUnit(NovaFeedbackAM8_8);
+    ft = inTable;
+
+    registerUnit< nova::NovaFeedbackAM<1, true> >( ft, "NovaFeedbackAM"  );
+    registerUnit< nova::NovaFeedbackAM<2, true> >( ft, "NovaFeedbackAM2"  );
+    registerUnit< nova::NovaFeedbackAM<4, true> >( ft, "NovaFeedbackAM4"  );
+    registerUnit< nova::NovaFeedbackAM<8, true> >( ft, "NovaFeedbackAM8"  );
+
+    registerUnit< nova::NovaFeedbackAM<2, false> >( ft, "NovaFeedbackAM2_2" );
+    registerUnit< nova::NovaFeedbackAM<4, false> >( ft, "NovaFeedbackAM4_4" );
+    registerUnit< nova::NovaFeedbackAM<8, false> >( ft, "NovaFeedbackAM8_8" );
 }
