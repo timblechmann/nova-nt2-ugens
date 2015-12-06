@@ -7,6 +7,7 @@ include(sc-plugin-builder.cmake)
 
 file(GLOB headers dsp/*hpp)
 file(GLOB headers_2 *hpp)
+file(GLOB headers_3 approximations/*hpp)
 
 #########
 # nt2
@@ -33,7 +34,7 @@ target_compile_definitions( NT2 INTERFACE BOOST_SIMD_NO_STRICT_ALIASING BOOST_SI
 # plugins
 
 
-add_scplugin(NovaAmbisonicUGens NovaAmbisonicUGens.cpp ${headers} ${headers_2})
+add_scplugin(NovaAmbisonicUGens NovaAmbisonicUGens.cpp ${headers} ${headers_2} ${headers_3})
 add_scplugin(NovaLeakDC         NovaLeakDC.cpp)
 add_scplugin(NovaMultiFilters   NovaMultiFilters.cpp)
 add_scplugin(NovaSaturator      NovaSaturator.cpp)
@@ -76,3 +77,17 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(saturator_test PUBLIC -Wa,-q) # workaround for homebrew's gcc
   endif()
 endif()
+
+
+add_library( gtest gtest/googletest/src/gtest-all.cc gtest/googletest/src/gtest_main.cc )
+target_include_directories( gtest PUBLIC  gtest/googletest/include
+                                  PRIVATE gtest/googletest/        )
+
+if(UNIX)
+  target_link_libraries( gtest pthread )
+endif()
+
+add_executable( tests tests/approximation_tests.cpp )
+target_link_libraries( tests gtest NT2 )
+set_target_properties( tests PROPERTIES CXX_STANDARD 14)
+target_compile_definitions( tests PUBLIC BOOST_NO_AUTO_PTR )

@@ -58,120 +58,59 @@
  * Contact: Paul Mineiro <paul@mineiro.com>                            *
  *=====================================================================* */
 
-#ifndef TAN_APPROXIMATION_HPP
-#define TAN_APPROXIMATION_HPP
+#ifndef COS_APPROXIMATION_HPP
+#define COS_APPROXIMATION_HPP
 
-#include <boost/simd/include/constants/four.hpp>
+
+#include <approximations/sin.hpp>
+
+#include <nt2/include/functions/cos.hpp>
+
 #include <boost/simd/include/constants/one.hpp>
 #include <boost/simd/include/constants/pio_2.hpp>
-#include <boost/simd/include/constants/pi.hpp>
+#include <boost/simd/include/functions/abs.hpp>
+#include <boost/simd/include/functions/if_else.hpp>
 #include <boost/simd/include/functions/splat.hpp>
-#include <boost/simd/include/functions/bitwise_and.hpp>
-#include <boost/simd/include/functions/bitwise_or.hpp>
-#include <boost/simd/operator/operator.hpp>
-
-#include <boost/simd/arithmetic/include/functions/abs.hpp>
-#include <boost/simd/arithmetic/include/functions/raw_rec.hpp>
-#include <boost/simd/arithmetic/include/functions/fast_rec.hpp>
-
-#include <boost/simd/ieee/include/functions/copysign.hpp>
-#include <boost/simd/ieee/include/functions/bitofsign.hpp>
-
-#include <nt2/include/functions/sin.hpp>
-#include <nt2/include/functions/tan.hpp>
 
 namespace nova {
 namespace approximations {
 
-struct SinPrecise {};
-struct SinFast    {};
-struct SinFaster  {};
-
-
-struct TanPrecise {};
-struct TanFast    {};
-struct TanFaster  {};
-
+struct CosPrecise {};
+struct CosFast    {};
+struct CosFaster  {};
 
 template <typename Arg>
-BOOST_FORCEINLINE auto sin( Arg x, SinPrecise ) -> Arg
+BOOST_FORCEINLINE auto cos( Arg x, CosPrecise ) -> Arg
 {
-    return nt2::sin( x );
+    return nt2::cos( x );
 }
 
 template <typename Arg>
-BOOST_FORCEINLINE auto sin( Arg x, SinFast ) -> Arg
+BOOST_FORCEINLINE auto cos( Arg x, CosFast ) -> Arg
 {
     using namespace boost::simd;
 
-    const Arg fourOverPi   = boost::simd::Four<Arg>() / boost::simd::Pi<Arg>(); // 1.2732395447351627f
-    const Arg fourOverPiSq = splat<Arg>( 0.40528473456935109f );
+    const Arg piOver2           = Pio_2<Arg>();
+    const Arg piOver2MinusTwoPi = splat<Arg>(-4.7123889803846899f);
 
-    const Arg q = splat<Arg>( 0.78444488374548933f);
-    const Arg p = splat<Arg>( 0.20363937680730309f);
-    const Arg r = splat<Arg>( 0.015124940802184233f);
-    const Arg s = splat<Arg>(-0.0032225901625579573f);
+    const Arg offset = if_else( x > piOver2, piOver2MinusTwoPi, piOver2 );
 
-    const Arg qpprox   = fourOverPi * x - fourOverPiSq * x * abs( x );
-    const Arg qpproxsq = qpprox * qpprox;
-
-    Arg y              = qpproxsq * (p + qpproxsq * (r + qpproxsq * s));
-
-    y        = bitwise_xor( y, bitofsign( x ) );
-
-    return q * qpprox + y;
+    return sin( x + offset, SinFast() );
 }
 
 template <typename Arg>
-BOOST_FORCEINLINE auto sin( Arg x, SinFaster ) -> Arg
+BOOST_FORCEINLINE auto cos( Arg x, CosFaster ) -> Arg
 {
-
     using namespace boost::simd;
 
-    const Arg fourOverPi   = boost::simd::Four<Arg>() / boost::simd::Pi<Arg>(); // 1.2732395447351627f
-    const Arg fourOverPiSq = splat<Arg>( 0.40528473456935109f );
+    const Arg twoOverPi = splat<Arg>( 0.63661977236758134f );
+    const Arg p         = splat<Arg>( 0.54641335845679634f );
 
-    const Arg q    = splat<Arg>(0.77633023248007499f);
-    const Arg plit = splat<Arg>(0.22308510060189463f);
+    const Arg qpprox    = One<Arg>() - twoOverPi * abs( x );
 
-    const Arg qpprox = fourOverPi * x - fourOverPiSq * x * boost::simd::abs( x );
-
-    const Arg p    = bitwise_or( bitofsign( x ), plit );
-    // const Arg p    = copysign( plit, x );
-
-    return qpprox * (q + p * qpprox);
+    return qpprox + p * qpprox * ( One<Arg>() - qpprox * qpprox );
 }
-
-
-
-
-
-
-
-template <typename Arg>
-BOOST_FORCEINLINE auto tan( Arg x, TanPrecise ) -> Arg
-{
-    return nt2::tan( x );
-}
-
-template <typename Arg>
-BOOST_FORCEINLINE auto tan( Arg x, TanFast ) -> Arg
-{
-    Arg piOver2 = boost::simd::Pio_2<Arg>();
-
-    return sin( x, SinFast() ) * boost::simd::fast_rec( sin( x * piOver2, SinFast() ) );
-}
-
-template <typename Arg>
-BOOST_FORCEINLINE auto tan( Arg x, TanFaster ) -> Arg
-{
-    Arg piOver2 = boost::simd::Pio_2<Arg>();
-
-    return sin( x, SinFaster() ) * boost::simd::raw_rec( sin( x * piOver2, SinFaster() ) );
-}
-
-
 
 }}
 
-#endif // TAN_APPROXIMATION_HPP
+#endif // COS_APPROXIMATION_HPP

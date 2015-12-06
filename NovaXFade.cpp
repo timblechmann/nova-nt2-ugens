@@ -20,7 +20,7 @@
 #include "NovaUGensCommon.hpp"
 #include "producer_consumer_functors.hpp"
 #include "dsp/utils.hpp"
-#include "dsp/parabol_sine.hpp"
+#include "approximations/parabol_sine.hpp"
 
 #include <cmath>
 
@@ -29,7 +29,7 @@
 #include <boost/simd/constant/constants/one.hpp>
 #include <boost/simd/constant/constants/pi.hpp>
 
-#include <dsp/tan_approximation.hpp>
+#include <approximations/tan.hpp>
 
 using nova::NovaUnit;
 

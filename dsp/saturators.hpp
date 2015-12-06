@@ -39,7 +39,7 @@
 
 #include <dsp/utils.hpp>
 
-#include <dsp/tanh_approximation.hpp>
+#include <approximations/tanh.hpp>
 
 namespace nova      {
 namespace saturator {

@@ -52,9 +52,9 @@ struct NovaUnitUnary:
     typedef float            FrontendSampleType;
     typedef ScalarSampleType BackendSampleType;
 
-    typedef typename nova::as_pack<double, NumberOfChannels>::type SampleType;
+    typedef typename nova::as_pack<ScalarSampleType, NumberOfChannels>::type SampleType;
     typedef typename nova::as_pack<float, ParameterSize>::type  ParameterType;
-    typedef typename nova::as_pack<double, ParameterSize>::type ParameterDSPType;
+    typedef typename nova::as_pack<ScalarSampleType, ParameterSize>::type ParameterDSPType;
 
     // inputs:
     using SignalInput = typename nova::multichannel::SignalInput< NovaUnitUnary<DerivedClass, NumberOfChannels, ScalarSampleType, ScalarArguments>, 0, NumberOfChannels >;

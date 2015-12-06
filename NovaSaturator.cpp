@@ -31,8 +31,8 @@
 #include <boost/simd/include/functions/floor.hpp>
 #include <boost/simd/include/functions/abs.hpp>
 
-#include <dsp/tanh_approximation.hpp>
-#include <dsp/pow_approximation.hpp>
+#include <approximations/tanh.hpp>
+#include <approximations/pow.hpp>
 
 namespace {
 

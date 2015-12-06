@@ -1,3 +1,6 @@
 [submodule "nt2"]
 	path = nt2
 	url = https://github.com/jfalcou/nt2.git
+[submodule "gtest"]
+	path = gtest
+	url = https://github.com/google/googletest.git

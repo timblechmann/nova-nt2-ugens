@@ -36,7 +36,7 @@
 #include <boost/simd/include/functions/negate.hpp>
 #include <boost/simd/include/functions/fast_divides.hpp>
 
-#include <dsp/tan_approximation.hpp>
+#include <approximations/tan.hpp>
 #include <dsp/utils.hpp>
 
 #include <cmath>
