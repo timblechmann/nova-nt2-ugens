@@ -292,6 +292,7 @@ struct SVFLowShelf
         ParameterType A = amp;
 
         ParameterType two = boost::simd::Two<ParameterType>();
+        resonance = nova::clip(resonance, 0.f, 1.f );
         ParameterType k   = (two - two * resonance) * fast_rec(A);
 
         ParameterType a1 = fast_rec(1 + g * (g + k));
