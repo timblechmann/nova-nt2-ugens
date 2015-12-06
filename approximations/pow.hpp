@@ -87,11 +87,6 @@
 namespace nova {
 namespace approximations {
 
-enum {
-    powPrecise,
-    powFast,
-    powFaster
-};
 
 struct PowPrecise {};
 struct PowFast    {};

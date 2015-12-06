@@ -20,7 +20,6 @@
 #include "NovaUGensCommon.hpp"
 #include "producer_consumer_functors.hpp"
 #include "dsp/utils.hpp"
-#include "approximations/parabol_sine.hpp"
 
 #include <cmath>
 
