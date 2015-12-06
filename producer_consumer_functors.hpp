@@ -352,7 +352,8 @@ public:
     template <typename OutputType>
     auto makeScalarInputSignal()
     {
-        std::tie( mState, mXState ) = Base::readRawAndMappedInput();
+        if( changed() )
+            std::tie( mState, mXState ) = Base::readRawAndMappedInput();
         return [=] { return mXState; };
     }
 

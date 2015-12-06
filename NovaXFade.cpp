@@ -41,21 +41,18 @@ namespace PanningLaws {
 struct EqualPowerPanning
 {
     template <typename SampleType>
-    auto operator() (SampleType input)
+    BOOST_FORCEINLINE auto operator() (SampleType input)
     {
         SampleType piOver4 = boost::simd::Pi<SampleType>() * 0.25f;
         SampleType arg = input * piOver4;
         SampleType leftGain, rightGain;
 
-        leftGain  = approximations::sin<SampleType>( piOver4 - input*piOver4, approximations::SinFast() );
-        rightGain = approximations::sin<SampleType>( piOver4 + input*piOver4, approximations::SinFast() );
+        leftGain  = approximations::sin<SampleType>( piOver4 - arg, approximations::SinFaster() );
+        rightGain = approximations::sin<SampleType>( piOver4 + arg, approximations::SinFaster() );
 
         typedef detail::ArithmeticArray<SampleType, 2> Result;
 
-        Result ret;
-        ret[0] = leftGain;
-        ret[1] = rightGain;
-        return ret;
+        return Result{ leftGain, rightGain };
     }
 
     template <typename Type>
@@ -76,10 +73,7 @@ struct LinearPanning
 
         typedef detail::ArithmeticArray<SampleType, 2> Result;
 
-        Result ret;
-        ret[0] = leftGain;
-        ret[1] = rightGain;
-        return ret;
+        return Result{ leftGain, rightGain };
     }
 
     template <typename Type>
@@ -210,8 +204,25 @@ struct NovaXFade:
             auto leftGain  = panGains[0] * levelGain;
             auto rightGain = panGains[1] * levelGain;
 
-            loop( inNumSamples / vector_size, [&] {
-                sink( leftGain * leftFn() + rightGain * rightFn() );
+            size_t totalLoops = inNumSamples / vector_size;
+
+            size_t unroll = totalLoops / 4;
+            size_t remain = totalLoops - unroll * 4;
+
+            loop( unroll, [&] {
+                VectorType x0 = leftGain * leftFn() + rightGain * rightFn();
+                VectorType x1 = leftGain * leftFn() + rightGain * rightFn();
+                VectorType x2 = leftGain * leftFn() + rightGain * rightFn();
+                VectorType x3 = leftGain * leftFn() + rightGain * rightFn();
+                sink( x0 );
+                sink( x1 );
+                sink( x2 );
+                sink( x3 );
+            });
+
+            loop( remain, [&] {
+                VectorType x0 = leftGain * leftFn() + rightGain * rightFn();
+                sink( x0 );
             });
         }
     }
@@ -265,9 +276,28 @@ struct NovaXFade:
             auto leftGain  = panGains[0];
             auto rightGain = panGains[1];
 
-            loop( inNumSamples / vector_size, [&] {
-                sink( leftGain * leftFn() + rightGain * rightFn() );
+            size_t totalLoops = inNumSamples / vector_size;
+
+            size_t unroll = totalLoops / 4;
+            size_t remain = totalLoops - unroll * 4;
+
+
+            loop( unroll, [&] {
+                VectorType x0 = leftGain * leftFn() + rightGain * rightFn();
+                VectorType x1 = leftGain * leftFn() + rightGain * rightFn();
+                VectorType x2 = leftGain * leftFn() + rightGain * rightFn();
+                VectorType x3 = leftGain * leftFn() + rightGain * rightFn();
+                sink( x0 );
+                sink( x1 );
+                sink( x2 );
+                sink( x3 );
             });
+
+            loop( remain, [&] {
+                VectorType x0 = leftGain * leftFn() + rightGain * rightFn();
+                sink( x0 );
+            });
+
         }
     }
 };

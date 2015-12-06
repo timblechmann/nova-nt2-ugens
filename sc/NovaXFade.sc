@@ -8,7 +8,7 @@ NovaXFade : PureUGen {
     }
 }
 
-LinXFade : PureUGen {
+NovaLinXFade : PureUGen {
     *ar { arg left, right, pan = 0, amp = 1;
         ^this.multiNew( 'audio', left, right, pan, amp )
     }
