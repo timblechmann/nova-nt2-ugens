@@ -285,6 +285,22 @@ struct SaturationBase:
         });
     }
 
+    template <typename SampleType,
+              typename Input0,
+              typename Input1,
+              typename Output0>
+    inline void perform_xi(int inNumSamples, Input0 & input0, Input1 input1, Output0 & output)
+    {
+        using namespace boost::simd;
+
+        const size_t unroll = boost::simd::meta::cardinal_of<SampleType>::value;
+        loop( inNumSamples / unroll, [&] {
+            auto in0 = input0();
+            auto result = Distortion::doDistort( in0, input1 );
+            output(result);
+        });
+    }
+
 
     template <typename SampleType>
     void run (int inNumSamples, control_signature_a)
@@ -317,7 +333,7 @@ struct SaturationBase:
         auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
         auto output = SignalOutput::template makeSink<SampleType>();
 
-        perform<SampleType>( inNumSamples, input0, input1, output );
+        perform_xi<SampleType>( inNumSamples, input0, input1, output );
     }
 
     template <typename SampleType>
@@ -327,7 +343,7 @@ struct SaturationBase:
         auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
         auto output = SignalOutput::template makeSink<SampleType>();
 
-        perform<SampleType>( 1, input0, input1, output );
+        perform_xi<SampleType>( 1, input0, input1, output );
     }
 };
 
