@@ -430,8 +430,17 @@ NovaPeakSVF2       : NovaLowPassSVF2 {}
 
 NovaLowShelfSVF2 : PureMultiOutUGen {
     *ar { |sig1, sig2, freq = 880, amp = 1, res = 0|
-        ^this.multiNew('audio', sig, freq, amp, res)
+        ^this.multiNew('audio', sig1, sig2, freq, amp, res)
     }
+
+    init { arg ... theInputs;
+        inputs = theInputs;
+        channels = [ OutputProxy(rate, this, 0), OutputProxy(rate, this, 1) ];
+        ^channels
+    }
+
+    checkInputs { ^this.checkNInputs(2) }
+
 }
 
 NovaHighShelfSVF2  : NovaLowShelfSVF2 {}
@@ -460,7 +469,7 @@ NovaPeakSVF4       : NovaLowPassSVF4 {}
 
 NovaLowShelfSVF4 : PureMultiOutUGen {
     *ar { |sig1, sig2, sig3, sig4, freq = 880, amp = 1, res = 0|
-        ^this.multiNew('audio', sig, sig2, sig3, freq, amp, res)
+        ^this.multiNew('audio', sig1, sig2, sig3, freq, amp, res)
     }
 }
 

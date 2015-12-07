@@ -248,9 +248,10 @@ public:
 
     typedef ScalarInput< UGenClass, InputIndex, InputFunctor > Base;
 
-    SlopedInput():
-        mState( Base::readRawInput() )
-    {}
+    SlopedInput()
+    {
+        std::tie( mState, mXState )  = Base::readRawAndMappedInput();
+    }
 
     auto readInput()
     {

@@ -5,6 +5,8 @@ HyperbolSaturation : PureUGen {
     *kr { |sig level=1|
         ^this.multiNew( 'control', sig, level )
     }
+
+    checkInputs { ^this.checkNInputs(1) }
 }
 
 ParabolSaturation : HyperbolSaturation {
