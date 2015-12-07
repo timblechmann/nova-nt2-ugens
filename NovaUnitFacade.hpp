@@ -33,7 +33,7 @@ namespace nova {
 
 
 // TODO:
-// * nova::toDouble -> toParameterDSPType
+// * nova::castType -> toParameterDSPType
 //
 template < class DerivedClass,
            int NumberOfChannels,
@@ -89,7 +89,7 @@ struct NovaUnitUnary:
 
     auto computeState ( ParameterType parameter )
     {
-        return computeState( nova::toDouble<ParameterDSPType>( parameter ) );
+        return computeState( nova::castType<ParameterDSPType>( parameter ) );
     }
 
     auto computeState ( ParameterDSPType parameter )

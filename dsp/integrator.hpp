@@ -111,7 +111,7 @@ struct Integrator
 		for (size_t i = 0; i != count; ++i)
 		{
 			auto x  = sigIn();
-			auto y  = tick( x, y_1, toDouble<ParameterType>( stateIn()[stateA] ) );
+			auto y  = tick( x, y_1, castType<ParameterType>( stateIn()[stateA] ) );
 			out(y);
 		}
 		_y_1 = y_1;

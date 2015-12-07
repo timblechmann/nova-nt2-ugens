@@ -54,14 +54,23 @@ struct as_pack< ScalarType, 1 >
 };
 
 
+namespace impl {
+
 template <typename ReturnType, typename ArgumentType>
-BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
+BOOST_FORCEINLINE ReturnType castType( ArgumentType const & arg, std::true_type isSame )
+{
+    return arg;
+}
+
+template <typename ReturnType, typename ArgumentType>
+BOOST_FORCEINLINE ReturnType castType( ArgumentType const & arg, std::false_type isSame )
 {
     using namespace boost::simd;
+    typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
+    typedef typename meta::scalar_of<ReturnType>::type   ReturnScalar;
 
     const size_t size = meta::cardinal_of<ReturnType>::value;
 
-    typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
     typedef typename as_pack< ArgScalar, size >::type EvaluatedArgType;
 
     const EvaluatedArgType evaluatedArg = arg;
@@ -72,6 +81,19 @@ BOOST_FORCEINLINE ReturnType toDouble( ArgumentType const & arg )
     }
 
     return ret;
+}
+
+}
+
+template <typename ReturnType, typename ArgumentType>
+BOOST_FORCEINLINE ReturnType castType( ArgumentType const & arg )
+{
+    using namespace boost::simd;
+
+    typedef typename meta::scalar_of<ArgumentType>::type ArgScalar;
+    typedef typename meta::scalar_of<ReturnType>::type   ReturnScalar;
+
+    return impl::castType<ReturnType>( arg, typename std::is_same< ArgScalar, ReturnScalar>::type() );
 }
 
 }

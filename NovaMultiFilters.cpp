@@ -211,7 +211,7 @@ struct NovaBiquadBase:
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-using nova::toDouble;
+using nova::castType;
 
 struct DesignLPF
 {
@@ -252,10 +252,10 @@ struct DesignLPF
         BiquadParameterStruct ret;
         auto denom = (K2*q + K + q);
 
-        ret._a0_a1_a2 = toDouble<ParameterType>( fast_div( (K2*q), denom ) );
+        ret._a0_a1_a2 = castType<ParameterType>( fast_div( (K2*q), denom ) );
 
-        ret._b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f),  denom) );
-        ret._b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom)       );
+        ret._b1 = castType<ParameterType>( fast_div( 2.f * q * (K2-1.f),  denom) );
+        ret._b2 = castType<ParameterType>( fast_div( K2*q - K + q,  denom)       );
         return ret;
     }
 };
@@ -294,11 +294,11 @@ struct DesignHPF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret._a0_a2 = toDouble<ParameterType>( fast_div( q,  denom) );
-        ret._a1    = toDouble<ParameterType>( fast_div( -2.f * q,  denom) );
+        ret._a0_a2 = castType<ParameterType>( fast_div( q,  denom) );
+        ret._a1    = castType<ParameterType>( fast_div( -2.f * q,  denom) );
 
-        ret._b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom) );
-        ret._b2 = toDouble<ParameterType>( fast_div( (K2*q - K + q),  denom) );
+        ret._b1 = castType<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom) );
+        ret._b2 = castType<ParameterType>( fast_div( (K2*q - K + q),  denom) );
         return ret;
     }
 };
@@ -338,10 +338,10 @@ struct DesignBPF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret._a0 = toDouble<ParameterType>( fast_div( K,  denom) );
+        ret._a0 = castType<ParameterType>( fast_div( K,  denom) );
 
-        ret._b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
-        ret._b2 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
+        ret._b1 = castType<ParameterType>( fast_div( 2.f * q * (K2-1.f), denom ) );
+        ret._b2 = castType<ParameterType>( fast_div( K2*q - K + q, denom ) );
         return ret;
     }
 };
@@ -380,10 +380,10 @@ struct DesignBRF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret._a0_a2 = toDouble<ParameterType>( fast_div( q * (1.f + K2), denom ) );
-        ret._a1_b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
+        ret._a0_a2 = castType<ParameterType>( fast_div( q * (1.f + K2), denom ) );
+        ret._a1_b1 = castType<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
 
-        ret._b2 = toDouble<ParameterType>( fast_div( K2*q - K + q,  denom     ) );
+        ret._b2 = castType<ParameterType>( fast_div( K2*q - K + q,  denom     ) );
         return ret;
     }
 };
@@ -421,8 +421,8 @@ struct DesignAPF
         typedef typename BiquadParameterStruct::type ParameterType;
 
         auto denom = (K2*q + K + q);
-        ret._a0_b2 = toDouble<ParameterType>( fast_div( K2*q - K + q, denom ) );
-        ret._a1_b1 = toDouble<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
+        ret._a0_b2 = castType<ParameterType>( fast_div( K2*q - K + q, denom ) );
+        ret._a1_b1 = castType<ParameterType>( fast_div( 2.f * q * (K2 - 1.f), denom ) );
         return ret;
     }
 };
