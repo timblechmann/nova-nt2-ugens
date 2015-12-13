@@ -30,6 +30,7 @@
 #include <boost/simd/include/functions/max.hpp>
 #include <boost/simd/include/functions/floor.hpp>
 #include <boost/simd/include/functions/abs.hpp>
+#include <boost/simd/include/constants/one.hpp>
 
 #include <approximations/tanh.hpp>
 #include <approximations/pow.hpp>
@@ -163,7 +164,7 @@ inline SampleType fold(SampleType x)
     namespace bs = boost::simd;
 
     SampleType one = bs::One<SampleType>();
-    return one - bs::abs( x - 4.f * bs::floor( ( x + bs::One<SampleType>() ) * 0.25f ) - one );
+    return one - bs::abs( x - 4.f * bs::floor( ( x + one ) * 0.25f ) - one );
 }
 
 
@@ -333,7 +334,7 @@ struct SaturationBase:
         auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
         auto output = SignalOutput::template makeSink<SampleType>();
 
-        perform_xi<SampleType>( inNumSamples, input0, input1, output );
+        perform_xi<SampleType>( inNumSamples, input0, input1(), output );
     }
 
     template <typename SampleType>
@@ -343,7 +344,7 @@ struct SaturationBase:
         auto input1 = LevelInput  ::template makeScalarInputSignal<SampleType>();
         auto output = SignalOutput::template makeSink<SampleType>();
 
-        perform_xi<SampleType>( 1, input0, input1, output );
+        perform_xi<SampleType>( 1, input0, input1(), output );
     }
 };
 
