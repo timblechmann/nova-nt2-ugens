@@ -37,6 +37,7 @@
 
 #include <nt2/include/functions/tan.hpp>
 
+#include <function_attributes.h>
 
 #include <dsp/utils.hpp>
 
@@ -97,7 +98,7 @@ struct BiquadParameterStruct
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
-template <typename FilterDesigner, size_t Size, bool ScalarArguments = true, bool Fast = true>
+template <typename FilterDesigner, size_t Size, bool ScalarArguments = true, bool Fast = false>
 struct NovaBiquadBase:
     public NovaUnit,
     public nova::multichannel::SignalInput< NovaBiquadBase<FilterDesigner, Size, ScalarArguments, Fast>, 0, Size >,
@@ -114,7 +115,7 @@ struct NovaBiquadBase:
     typedef typename boost::mpl::if_c<Fast, float, double>::type InternalType;
 
     typedef typename nova::as_pack<float,  Size>::type vFloat;
-    typedef typename nova::as_pack<double, Size>::type vInternal;
+    typedef typename nova::as_pack<InternalType, Size>::type vInternal; // wrong, but fast
 
     typedef typename boost::mpl::if_c<ScalarArguments, InternalType, vInternal>::type ParameterType;
     typedef typename boost::mpl::if_c<ScalarArguments, float,  vFloat>::type HostParameterType;
@@ -151,7 +152,7 @@ struct NovaBiquadBase:
     }
 
     template <typename ControlSignature>
-    void run(int inNumSamples)
+    FLATTEN void run(int inNumSamples)
     {
         next( inNumSamples, ControlSignature() );
     }
