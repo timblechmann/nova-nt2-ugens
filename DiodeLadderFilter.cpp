@@ -32,6 +32,7 @@
 
 #include <boost/simd/include/functions/fast_divides.hpp>
 #include <boost/simd/include/functions/fast_rec.hpp>
+#include <boost/simd/include/functions/raw_rec.hpp>
 #include <boost/simd/include/functions/compare_equal.hpp>
 #include <boost/simd/sdk/meta/as_logical.hpp>
 
@@ -312,14 +313,16 @@ private:
 
         // current state
 #if 0
-        const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - two*a2) * a + z[3] * (b2 - 3.0 * a2) * b ) * c;
+        const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - two*a2) * a + z[3] * (b2 - InternalType(3.0) * a2) * b ) * c;
 #else
-        const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - (a2+a2)) * a + z[3] * (b2 - 3.0 * a2) * b ) * c;
+        const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - (a2+a2)) * a + z[3] * (b2 - InternalType(3.0) * a2) * b ) * c;
 #endif
         const InternalType s = bh * s0 - z[4];
 
         // solve feedback loop (linear)
-        InternalType y5 = fast_div( g*x + s, One<InternalType>() + g*k );
+        InternalType y5 =  g*x + s * raw_rec( One<InternalType>() + g*k );
+        //InternalType y5 = fast_div( g*x + s, One<InternalType>() + g*k );
+
 
         // input clipping
         const InternalType y0 = saturator::distort<InternalType>( x - k*y5 );
