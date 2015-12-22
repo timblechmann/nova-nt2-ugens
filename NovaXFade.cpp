@@ -128,10 +128,10 @@ struct NovaXFade:
 
         if( LevelInput::changed() ) {
             auto levelFn = LevelInput::template makeRampSignal<VectorType>();
-            return next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
+            next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto levelFn = LevelInput::template makeScalarInputSignal<VectorType>();
-            next<VectorType, calc_BufRate>( panFn, levelFn, inNumSamples );
+            next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         }
     }
 
@@ -145,7 +145,7 @@ struct NovaXFade:
             next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         } else {
             auto panFn   = PanInput::  template makeScalarInputSignal<VectorType>();
-            next<VectorType, calc_BufRate>( panFn, levelFn, inNumSamples );
+            next<VectorType, calc_FullRate>( panFn, levelFn, inNumSamples );
         }
     }
 
