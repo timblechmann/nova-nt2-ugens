@@ -223,13 +223,12 @@ NovaFeedbackAM8_8 : MultiOutUGen {
 
 //////////////////////
 
-NovaLowPass : UGen {
-
-    *ar { arg sig, cutoff, q = 0.70710678118655;
-        ^this.multiNew( 'audio', sig, cutoff, q )
+NovaLowPass : PureUGen {
+    *ar { arg sig, cutoff = 440, q = 0.70710678118655;
+		^this.multiNew( 'audio', sig, cutoff, q )
     }
 
-    *kr { arg sig, cutoff, q = 0.70710678118655;
+    *kr { arg sig, cutoff = 440, q = 0.70710678118655;
         ^this.multiNew( 'control', sig, cutoff, q )
     }
 
@@ -241,14 +240,13 @@ NovaBandPass   : NovaLowPass {}
 NovaBandReject : NovaLowPass {}
 NovaAllPass    : NovaLowPass {}
 
-
-
-NovaLowPass2 : MultiOutUGen {
-    *ar { arg left, right, cutoff, q = 0.70710678118655;
+// 2-channel
+NovaLowPass2 : PureMultiOutUGen {
+    *ar { arg left, right, cutoff = 440, q = 0.70710678118655;
         ^this.multiNew( 'audio', left, right, cutoff, q )
     }
 
-    *kr { arg left, right, cutoff, q = 0.70710678118655;
+    *kr { arg left, right, cutoff = 440, q = 0.70710678118655;
         ^this.multiNew( 'control', left, right, cutoff, q )
     }
 
@@ -266,12 +264,41 @@ NovaBandPass2   : NovaLowPass2 {}
 NovaBandReject2 : NovaLowPass2 {}
 NovaAllPass2    : NovaLowPass2 {}
 
-NovaLowPass4 : MultiOutUGen {
-    *ar { arg s0, s1, s2, s3, cutoff, q = 0.70710678118655;
+
+// 2-channel, separate controls
+NovaLowPass2_2 : PureMultiOutUGen {
+    *ar { arg left, right, cutoffLeft = 440, cutoffRight = 440, qLeft = 0.70710678118655, qRight = 0.70710678118655;
+        ^this.multiNew( 'audio', left, right, cutoffLeft, cutoffRight, qLeft, qRight )
+    }
+
+    *kr { arg left, right, cutoffLeft = 440, cutoffRight = 440, qLeft = 0.70710678118655, qRight = 0.70710678118655;
+        ^this.multiNew( 'control', left, right, cutoffLeft, cutoffRight, qLeft, qRight )
+    }
+
+    init { arg ... theInputs;
+        inputs = theInputs;
+        channels = [ OutputProxy(rate, this, 0), OutputProxy(rate, this, 1) ];
+        ^channels
+    }
+
+    checkInputs { ^this.checkNInputs(2) }
+}
+
+
+NovaHighPass2_2   : NovaLowPass2_2 {}
+NovaBandPass2_2   : NovaLowPass2_2 {}
+NovaBandReject2_2 : NovaLowPass2_2 {}
+NovaAllPass2_2    : NovaLowPass2_2 {}
+
+
+// 4-channel
+
+NovaLowPass4 : PureMultiOutUGen {
+    *ar { arg s0, s1, s2, s3, cutoff = 440, q = 0.70710678118655;
         ^this.multiNew( 'audio', s0, s1, s2, s3, cutoff, q )
     }
 
-    *kr { arg s0, s1, s2, s3, cutoff, q = 0.70710678118655;
+    *kr { arg s0, s1, s2, s3, cutoff = 440, q = 0.70710678118655;
         ^this.multiNew( 'control', s0, s1, s2, s3, cutoff, q )
     }
 
@@ -291,22 +318,34 @@ NovaAllPass4    : NovaLowPass4 {}
 
 
 
+// 4-channel
+
+NovaLowPass4_4 : PureMultiOutUGen {
+    *ar { arg s0, s1, s2, s3, cutoff0 = 440, cutoff1 = 440, cutoff2 = 440, cutoff3 = 440, q0 = 0.70710678118655, q1 = 0.70710678118655, q2 = 0.70710678118655, q3 = 0.70710678118655;
+        ^this.multiNew( 'audio', s0, s1, s2, s3, cutoff0, cutoff1, cutoff2, cutoff3, q0, q1, q2, q3 )
+    }
+
+	*kr { arg s0, s1, s2, s3, cutoff0 = 440, cutoff1 = 440, cutoff2 = 440, cutoff3 = 440, q0 = 0.70710678118655, q1 = 0.70710678118655, q2 = 0.70710678118655, q3 = 0.70710678118655;
+        ^this.multiNew( 'control', s0, s1, s2, s3, cutoff0, cutoff1, cutoff2, cutoff3, q0, q1, q2, q3 )
+    }
+
+    init { arg ... theInputs;
+        inputs = theInputs;
+        channels = [ OutputProxy(rate, this, 0), OutputProxy(rate, this, 1), OutputProxy(rate, this, 2), OutputProxy(rate, this, 3) ];
+        ^channels
+    }
+
+    checkInputs { ^this.checkNInputs(4) }
+}
+
+NovaHighPass4_4   : NovaLowPass4_4 {}
+NovaBandPass4_4   : NovaLowPass4_4 {}
+NovaBandReject4_4 : NovaLowPass4_4 {}
+NovaAllPass4_4    : NovaLowPass4_4 {}
 
 
 
-
-
-// NovaLowPass2_2  : NovaLowPass2 {
-//  *ar { arg left, right, cutoffLeft, cutoffRight, qLeft = 0.70710678118655, qRight = 0.70710678118655;
-//      ^this.multiNew( 'audio', left, right, cutoffLeft, cutoffRight, qLeft, qRight );
-//  }
-//
-//  *kr { arg left, right, cutoffLeft, cutoffRight, qLeft = 0.70710678118655, qRight = 0.70710678118655;
-//      ^this.multiNew( 'control', left, right, cutoffLeft, cutoffRight, qLeft, qRight );
-//  }
-// }
-//
-// NovaLowPass2_2_4th : NovaLowPass2_2 {}
+////////////////
 
 NovaPanB2D : MultiOutUGen {
 

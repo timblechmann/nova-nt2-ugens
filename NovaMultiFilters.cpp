@@ -439,20 +439,30 @@ PluginLoad(NovaFilters)
     nova::registerUnit<NovaBiquadBase<DesignLPF, 1>> (ft, "NovaLowPass"  );
     nova::registerUnit<NovaBiquadBase<DesignLPF, 2>> (ft, "NovaLowPass2" );
     nova::registerUnit<NovaBiquadBase<DesignLPF, 4>> (ft, "NovaLowPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignLPF, 2, false>> (ft, "NovaLowPass2_2" );
+    nova::registerUnit<NovaBiquadBase<DesignLPF, 4, false>> (ft, "NovaLowPass4_4" );
 
     nova::registerUnit<NovaBiquadBase<DesignHPF, 1>> (ft, "NovaHighPass"  );
     nova::registerUnit<NovaBiquadBase<DesignHPF, 2>> (ft, "NovaHighPass2" );
     nova::registerUnit<NovaBiquadBase<DesignHPF, 4>> (ft, "NovaHighPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignHPF, 2, false>> (ft, "NovaHighPass2_2" );
+    nova::registerUnit<NovaBiquadBase<DesignHPF, 4, false>> (ft, "NovaHighPass4_4" );
 
     nova::registerUnit<NovaBiquadBase<DesignBPF, 1>> (ft, "NovaBandPass"  );
     nova::registerUnit<NovaBiquadBase<DesignBPF, 2>> (ft, "NovaBandPass2" );
     nova::registerUnit<NovaBiquadBase<DesignBPF, 4>> (ft, "NovaBandPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignBPF, 2, false>> (ft, "NovaBandPass2_2" );
+    nova::registerUnit<NovaBiquadBase<DesignBPF, 4, false>> (ft, "NovaBandPass4_4" );
 
     nova::registerUnit<NovaBiquadBase<DesignBRF, 1>> (ft, "NovaBandReject"  );
     nova::registerUnit<NovaBiquadBase<DesignBRF, 2>> (ft, "NovaBandReject2" );
     nova::registerUnit<NovaBiquadBase<DesignBRF, 4>> (ft, "NovaBandReject4" );
+    nova::registerUnit<NovaBiquadBase<DesignBRF, 2, false>> (ft, "NovaBandReject2_2" );
+    nova::registerUnit<NovaBiquadBase<DesignBRF, 4, false>> (ft, "NovaBandReject4_4" );
 
     nova::registerUnit<NovaBiquadBase<DesignAPF, 1>> (ft, "NovaAllPass"  );
     nova::registerUnit<NovaBiquadBase<DesignAPF, 2>> (ft, "NovaAllPass2" );
     nova::registerUnit<NovaBiquadBase<DesignAPF, 4>> (ft, "NovaAllPass4" );
+    nova::registerUnit<NovaBiquadBase<DesignAPF, 2, false>> (ft, "NovaAllPass2_2" );
+    nova::registerUnit<NovaBiquadBase<DesignAPF, 4, false>> (ft, "NovaAllPass4_4" );
 }
