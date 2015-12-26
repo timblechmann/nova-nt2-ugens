@@ -66,6 +66,7 @@
 #include <boost/simd/include/constants/pio_2.hpp>
 #include <boost/simd/arithmetic/include/functions/raw_rec.hpp>
 #include <boost/simd/arithmetic/include/functions/fast_rec.hpp>
+#include <boost/simd/include/functions/plus.hpp>
 
 #include <nt2/include/functions/tan.hpp>
 
@@ -88,7 +89,7 @@ BOOST_FORCEINLINE auto tan( Arg x, TanFast ) -> Arg
 {
     Arg piOver2 = boost::simd::Pio_2<Arg>();
 
-    return sin( x, SinFast() ) * boost::simd::fast_rec( sin( x + piOver2, SinFast() ) );
+    return sin<Arg>( x, SinFast() ) * boost::simd::fast_rec( sin<Arg>( x + piOver2, SinFast() ) );
 }
 
 template <typename Arg>
@@ -96,7 +97,7 @@ BOOST_FORCEINLINE auto tan( Arg x, TanFaster ) -> Arg
 {
     Arg piOver2 = boost::simd::Pio_2<Arg>();
 
-    return sin( x, SinFaster() ) * boost::simd::raw_rec( sin( x + piOver2, SinFaster() ) );
+    return sin<Arg>( x, SinFaster() ) * boost::simd::raw_rec( sin<Arg>( x + piOver2, SinFaster() ) );
 }
 
 

@@ -24,6 +24,7 @@
 #include <boost/simd/include/functions/eq.hpp>
 #include <boost/simd/include/functions/negate.hpp>
 #include <boost/simd/include/functions/fast_divides.hpp>
+#include <boost/simd/include/functions/fast_rec.hpp>
 
 #include <approximations/tan.hpp>
 
@@ -75,17 +76,18 @@ struct SVFFilter
     {
         using namespace boost::simd;
 
+        typedef typename meta::scalar_of<ParameterType>::type ParameterScalar;
         typedef decltype(dspContext.sampleRate()) SampleRateType;
-        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.01f), dspContext.sampleRate() * (SampleRateType)(0.5));
+        auto cutoffFreq = nova::clip( cutoff, ParameterScalar(0.01f), ParameterScalar( dspContext.sampleRate() * (SampleRateType)(0.5)) );
 
         ParameterType normalizedFrequency = cutoffFreq * dspContext.sampleDur();
-        ParameterType g = nova::approximations::tan( normalizedFrequency * Pi<ParameterType>(),
-                                                     nova::approximations::TanFast() );
+        ParameterType g = nova::approximations::tan<ParameterType>( normalizedFrequency * Pi<ParameterType>(),
+                                                                    nova::approximations::TanFast() );
 
         ParameterType two = boost::simd::Two<ParameterType>();
         ParameterType k   = two - two * resonance;
 
-        ParameterType a1 = fast_rec(1 + g * (g + k));
+        ParameterType a1 = fast_rec( One<ParameterType>() + g * (g + k));
         ParameterType a2 = g*a1;
         ParameterType a3 = g*a2;
 
@@ -182,19 +184,20 @@ struct SVFEQ
     {
         using namespace boost::simd;
 
+        typedef typename meta::scalar_of<ParameterType>::type ParameterScalar;
         typedef decltype(dspContext.sampleRate()) SampleRateType;
-        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.01f), dspContext.sampleRate() * (SampleRateType)(0.5));
+        auto cutoffFreq = nova::clip( cutoff, ParameterScalar(0.01f), ParameterScalar( dspContext.sampleRate() * (SampleRateType)(0.5)) );
 
         ParameterType normalizedFrequency = cutoffFreq * dspContext.sampleDur();
-        ParameterType g = nova::approximations::tan( normalizedFrequency * Pi<ParameterType>(),
-                                                     nova::approximations::TanFast() );
+        ParameterType g = nova::approximations::tan<ParameterType>( normalizedFrequency * Pi<ParameterType>(),
+                                                                    nova::approximations::TanFast() );
 
         ParameterType A = amp;
 
         ParameterType two = boost::simd::Two<ParameterType>();
         ParameterType k   = (two - two * resonance) * fast_rec(A);
 
-        ParameterType a1 = fast_rec(1 + g * (g + k));
+        ParameterType a1 = fast_rec( One<ParameterType>() + g * (g + k) );
         ParameterType a2 = g*a1;
         ParameterType a3 = g*a2;
         ParameterType m1 = k * ( A * A + One<ParameterType>() );
@@ -282,12 +285,13 @@ struct SVFLowShelf
     {
         using namespace boost::simd;
 
+        typedef typename meta::scalar_of<ParameterType>::type ParameterScalar;
         typedef decltype(dspContext.sampleRate()) SampleRateType;
-        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.01f), dspContext.sampleRate() * (SampleRateType)(0.5));
+        auto cutoffFreq = nova::clip( cutoff, ParameterScalar(0.01f), ParameterScalar( dspContext.sampleRate() * (SampleRateType)(0.5)) );
 
         ParameterType normalizedFrequency = cutoffFreq * dspContext.sampleDur();
-        ParameterType g = nova::approximations::tan( normalizedFrequency * Pi<ParameterType>(),
-                                                     nova::approximations::TanFast() );
+        ParameterType g = nova::approximations::tan<ParameterType>( normalizedFrequency * Pi<ParameterType>(),
+                                                                    nova::approximations::TanFast() );
 
         ParameterType A = amp;
 
@@ -295,7 +299,7 @@ struct SVFLowShelf
         resonance = nova::clip(resonance, 0.f, 1.f );
         ParameterType k   = (two - two * resonance) * fast_rec(A);
 
-        ParameterType a1 = fast_rec(1 + g * (g + k));
+        ParameterType a1 = fast_rec(One<ParameterType>() + g * (g + k));
         ParameterType a2 = g*a1;
         ParameterType a3 = g*a2;
         ParameterType m1 = k * (     A + One<ParameterType>() );
@@ -382,19 +386,20 @@ struct SVFHighShelf
     {
         using namespace boost::simd;
 
+        typedef typename meta::scalar_of<ParameterType>::type ParameterScalar;
         typedef decltype(dspContext.sampleRate()) SampleRateType;
-        auto cutoffFreq = nova::clip( (SampleRateType)cutoff, SampleRateType(0.01f), dspContext.sampleRate() * (SampleRateType)(0.5));
+        auto cutoffFreq = nova::clip( cutoff, ParameterScalar(0.01f), ParameterScalar( dspContext.sampleRate() * (SampleRateType)(0.5)) );
 
         ParameterType normalizedFrequency = cutoffFreq * dspContext.sampleDur();
-        ParameterType g = nova::approximations::tan( normalizedFrequency * Pi<ParameterType>(),
-                                                     nova::approximations::TanFast() );
+        ParameterType g = nova::approximations::tan<ParameterType>( normalizedFrequency * Pi<ParameterType>(),
+                                                                    nova::approximations::TanFast() );
 
         ParameterType A = amp;
 
         ParameterType two = boost::simd::Two<ParameterType>();
         ParameterType k   = (two - two * resonance) * fast_rec(A);
 
-        ParameterType a1 = fast_rec(1 + g * (g + k));
+        ParameterType a1 = fast_rec(One<ParameterType>() + g * (g + k));
         ParameterType a2 = g*a1;
         ParameterType a3 = g*a2;
 

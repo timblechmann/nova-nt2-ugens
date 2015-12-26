@@ -241,35 +241,51 @@ PluginLoad(NovaSVF)
 {
     ft = inTable;
 
-    nova::registerUnit< NovaSVFBase<svfLPF, 1, true> >( ft, "NovaLowPassSVF"  );
-    nova::registerUnit< NovaSVFBase<svfLPF, 2, true> >( ft, "NovaLowPassSVF2" );
-    nova::registerUnit< NovaSVFBase<svfLPF, 4, true> >( ft, "NovaLowPassSVF4" );
+    nova::registerUnit< NovaSVFBase<svfLPF, 1, true>  >( ft, "NovaLowPassSVF"    );
+    nova::registerUnit< NovaSVFBase<svfLPF, 2, true>  >( ft, "NovaLowPassSVF2"   );
+    nova::registerUnit< NovaSVFBase<svfLPF, 4, true>  >( ft, "NovaLowPassSVF4"   );
+    nova::registerUnit< NovaSVFBase<svfLPF, 2, false> >( ft, "NovaLowPassSVF2_2" );
+    nova::registerUnit< NovaSVFBase<svfLPF, 4, false> >( ft, "NovaLowPassSVF4_4" );
 
-    nova::registerUnit< NovaSVFBase<svfHPF, 1, true> >( ft, "NovaHighPassSVF"  );
-    nova::registerUnit< NovaSVFBase<svfHPF, 2, true> >( ft, "NovaHighPassSVF2" );
-    nova::registerUnit< NovaSVFBase<svfHPF, 4, true> >( ft, "NovaHighPassSVF4" );
+    nova::registerUnit< NovaSVFBase<svfHPF, 1, true>  >( ft, "NovaHighPassSVF"    );
+    nova::registerUnit< NovaSVFBase<svfHPF, 2, true>  >( ft, "NovaHighPassSVF2"   );
+    nova::registerUnit< NovaSVFBase<svfHPF, 4, true>  >( ft, "NovaHighPassSVF4"   );
+    nova::registerUnit< NovaSVFBase<svfHPF, 2, false> >( ft, "NovaHighPassSVF2_2" );
+    nova::registerUnit< NovaSVFBase<svfHPF, 4, false> >( ft, "NovaHighPassSVF4_4" );
 
-    nova::registerUnit< NovaSVFBase<svfBPF, 1, true> >( ft, "NovaBandPassSVF"  );
-    nova::registerUnit< NovaSVFBase<svfBPF, 2, true> >( ft, "NovaBandPassSVF2" );
-    nova::registerUnit< NovaSVFBase<svfBPF, 4, true> >( ft, "NovaBandPassSVF4" );
+    nova::registerUnit< NovaSVFBase<svfBPF, 1, true>  >( ft, "NovaBandPassSVF"    );
+    nova::registerUnit< NovaSVFBase<svfBPF, 2, true>  >( ft, "NovaBandPassSVF2"   );
+    nova::registerUnit< NovaSVFBase<svfBPF, 4, true>  >( ft, "NovaBandPassSVF4"   );
+    nova::registerUnit< NovaSVFBase<svfBPF, 2, false> >( ft, "NovaBandPassSVF2_2" );
+    nova::registerUnit< NovaSVFBase<svfBPF, 4, false> >( ft, "NovaBandPassSVF4_4" );
 
-    nova::registerUnit< NovaSVFBase<svfBRF, 1, true> >( ft, "NovaBandRejectSVF"  );
-    nova::registerUnit< NovaSVFBase<svfBRF, 2, true> >( ft, "NovaBandRejectSVF2" );
-    nova::registerUnit< NovaSVFBase<svfBRF, 4, true> >( ft, "NovaBandRejectSVF4" );
+    nova::registerUnit< NovaSVFBase<svfBRF, 1, true>  >( ft, "NovaBandRejectSVF"    );
+    nova::registerUnit< NovaSVFBase<svfBRF, 2, true>  >( ft, "NovaBandRejectSVF2"   );
+    nova::registerUnit< NovaSVFBase<svfBRF, 4, true>  >( ft, "NovaBandRejectSVF4"   );
+    nova::registerUnit< NovaSVFBase<svfBRF, 2, false> >( ft, "NovaBandRejectSVF2_2" );
+    nova::registerUnit< NovaSVFBase<svfBRF, 4, false> >( ft, "NovaBandRejectSVF4_4" );
 
-    nova::registerUnit< NovaSVFBase<svfPeak, 1, true> >( ft, "NovaPeakSVF"  );
-    nova::registerUnit< NovaSVFBase<svfPeak, 2, true> >( ft, "NovaPeakSVF2" );
-    nova::registerUnit< NovaSVFBase<svfPeak, 4, true> >( ft, "NovaPeakSVF4" );
+    nova::registerUnit< NovaSVFBase<svfPeak, 1, true>  >( ft, "NovaPeakSVF"    );
+    nova::registerUnit< NovaSVFBase<svfPeak, 2, true>  >( ft, "NovaPeakSVF2"   );
+    nova::registerUnit< NovaSVFBase<svfPeak, 4, true>  >( ft, "NovaPeakSVF4"   );
+    nova::registerUnit< NovaSVFBase<svfPeak, 2, false> >( ft, "NovaPeakSVF2_2" );
+    nova::registerUnit< NovaSVFBase<svfPeak, 4, false> >( ft, "NovaPeakSVF4_4" );
 
-    nova::registerUnit< NovaSVFShelfBase<svfEq, 1, true> >( ft, "NovaEqSVF"  );
-    nova::registerUnit< NovaSVFShelfBase<svfEq, 2, true> >( ft, "NovaEqSVF2" );
-    nova::registerUnit< NovaSVFShelfBase<svfEq, 4, true> >( ft, "NovaEqSVF4" );
+    nova::registerUnit< NovaSVFShelfBase<svfEq, 1, true>  >( ft, "NovaEqSVF"    );
+    nova::registerUnit< NovaSVFShelfBase<svfEq, 2, true>  >( ft, "NovaEqSVF2"   );
+    nova::registerUnit< NovaSVFShelfBase<svfEq, 4, true>  >( ft, "NovaEqSVF4"   );
+    nova::registerUnit< NovaSVFShelfBase<svfEq, 2, false> >( ft, "NovaEqSVF2_2" );
+    nova::registerUnit< NovaSVFShelfBase<svfEq, 4, false> >( ft, "NovaEqSVF4_4" );
 
-    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 1, true> >( ft, "NovaLowShelfSVF"  );
-    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 2, true> >( ft, "NovaLowShelfSVF2" );
-    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 4, true> >( ft, "NovaLowShelfSVF4" );
+    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 1, true>  >( ft, "NovaLowShelfSVF"    );
+    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 2, true>  >( ft, "NovaLowShelfSVF2"   );
+    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 4, true>  >( ft, "NovaLowShelfSVF4"   );
+    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 2, false> >( ft, "NovaLowShelfSVF2_2" );
+    nova::registerUnit< NovaSVFShelfBase<svfLowShelf, 4, false> >( ft, "NovaLowShelfSVF4_4" );
 
-    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 1, true> >( ft, "NovaHighShelfSVF"  );
-    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 2, true> >( ft, "NovaHighShelfSVF2" );
-    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 4, true> >( ft, "NovaHighShelfSVF4" );
+    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 1, true>  >( ft, "NovaHighShelfSVF"    );
+    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 2, true>  >( ft, "NovaHighShelfSVF2"   );
+    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 4, true>  >( ft, "NovaHighShelfSVF4"   );
+    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 2, false> >( ft, "NovaHighShelfSVF2_2" );
+    nova::registerUnit< NovaSVFShelfBase<svfHighShelf, 4, false> >( ft, "NovaHighShelfSVF4_4" );
 }
