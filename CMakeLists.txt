@@ -39,25 +39,24 @@ add_scplugin(NovaLeakDC         NovaLeakDC.cpp)
 add_scplugin(NovaMultiFilters   NovaMultiFilters.cpp)
 add_scplugin(NovaSaturator      NovaSaturator.cpp)
 add_scplugin(NovaFeedbackAM     NovaFeedbackAM.cpp)
+add_scplugin(NovaFB             NovaFB.cpp)
 add_scplugin(NovaXFade          NovaXFade.cpp)
 add_scplugin(NovaSVF            NovaSVF.cpp)
 add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
 
-include_directories( ~/boost_1_59_0/ )
-include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
-
-if(APPLE)
-  # hopefully homebrew provides boost
-  include_directories( /usr/local/include )
-endif()
-
-foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter NovaXFade NovaSVF )
+foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter NovaXFade NovaSVF NovaFB )
   target_link_libraries( ${plugin}           NT2)
   target_link_libraries( ${plugin}_supernova NT2)
 endforeach()
 
-add_scclass(NovaNT2UGens sc/NovaNT2UGens.sc sc/NovaXFade.sc sc/NovaSaturators.sc)
-
+add_scclass( NovaNT2UGens
+  sc/NovaFeedbackAM.sc
+  sc/NovaFB.sc
+  sc/NovaMultiFilters.sc
+  sc/NovaNT2UGens.sc
+  sc/NovaSaturators.sc
+  sc/NovaSVF.sc
+  sc/NovaXFade.sc )
 
 ##########
 # tests
