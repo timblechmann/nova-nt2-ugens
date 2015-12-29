@@ -28,7 +28,10 @@
 #include <boost/simd/include/functions/load.hpp>
 #include <boost/simd/include/functions/store.hpp>
 #include <boost/simd/include/functions/stream.hpp>
+#include <boost/simd/memory/align_on.hpp>
 #include <boost/simd/memory/is_aligned.hpp>
+
+#include <iostream>
 
 static InterfaceTable *ft;
 
@@ -67,38 +70,34 @@ inline void store( T * ptr, U value, stream )
 }
 
 
-template <typename T, typename Functor = nova::detail::Identity, typename InputTag = aligned, typename OutputTag = aligned>
-inline void transformCacheAware( T * dest, const T * src, unsigned count, Functor && f = Functor(), InputTag input = InputTag(), OutputTag output = OutputTag() )
+template <typename T, typename InputTag = aligned, typename OutputTag = aligned>
+inline void transformCacheAware( T * dest, const T * src, unsigned count, InputTag input = InputTag(), OutputTag output = OutputTag() )
 {
     typedef boost::simd::pack<T> pack;
     constexpr size_t framesPerPack      = pack::static_size;
     constexpr size_t packsPerCacheline  = 4;
+    constexpr size_t framesPerCacheline = packsPerCacheline * framesPerPack;
 
-    const     size_t unrolledLoops  = count / packsPerCacheline;
-    const     size_t remainingPacks = count - unrolledLoops * packsPerCacheline * framesPerPack;
+    const     size_t unrolledLoops   = count / framesPerCacheline;
+    const     size_t remainingFrames = count - unrolledLoops * framesPerCacheline;
 
     for( int index : nova::range(unrolledLoops) ) {
-        pack p0      = load<pack>( src + index * packsPerCacheline,                   input );
-        pack result0 = f( p0 );
-        pack p1      = load<pack>( src + index * packsPerCacheline + 1*framesPerPack, input );
-        pack result1 = f( p1 );
-        pack p2      = load<pack>( src + index * packsPerCacheline + 2*framesPerPack, input );
-        pack result2 = f( p2 );
-        pack p3      = load<pack>( src + index * packsPerCacheline + 3*framesPerPack, input );
-        pack result3 = f( p3 );
-        store( dest + index * packsPerCacheline,                   result0, output );
-        store( dest + index * packsPerCacheline + 1*framesPerPack, result1, output );
-        store( dest + index * packsPerCacheline + 2*framesPerPack, result2, output );
-        store( dest + index * packsPerCacheline + 3*framesPerPack, result3, output );
+        pack p0      = load<pack>( src + index * framesPerCacheline,                   input );
+        pack p1      = load<pack>( src + index * framesPerCacheline + 1*framesPerPack, input );
+        pack p2      = load<pack>( src + index * framesPerCacheline + 2*framesPerPack, input );
+        pack p3      = load<pack>( src + index * framesPerCacheline + 3*framesPerPack, input );
+        store( dest + index * framesPerCacheline,                   p0, output );
+        store( dest + index * framesPerCacheline + 1*framesPerPack, p1, output );
+        store( dest + index * framesPerCacheline + 2*framesPerPack, p2, output );
+        store( dest + index * framesPerCacheline + 3*framesPerPack, p3, output );
     }
 
-    if( BOOST_UNLIKELY( remainingPacks > 0 ) ) {
-        src  += unrolledLoops * packsPerCacheline * framesPerPack;
-        dest += unrolledLoops * packsPerCacheline * framesPerPack;
-        for( int index : nova::range(remainingPacks) ) {
+    if( BOOST_UNLIKELY( remainingFrames > 0 ) ) {
+        src  += unrolledLoops * framesPerCacheline;
+        dest += unrolledLoops * framesPerCacheline;
+        for( int index : nova::range(remainingFrames) ) {
             pack p0      = load<T>( src + index, unaligned() );
-            pack result0 = f( p0 );
-            store( dest + index, result0, unaligned() );
+            store( dest + index, p0, unaligned() );
         }
     }
 }
@@ -112,14 +111,22 @@ public:
     {
         mChannelCount = in0(0);
 
-        size_t allocSize = mBufLength * sizeof(float) * mChannelCount;
-        mBuff = (float*)RTAlloc( mWorld, allocSize );
-        memset(mBuff, 0, allocSize);
+        size_t allocSize = mBufLength * sizeof(float) * mChannelCount + 32;
+        realBuf = (float*)RTAlloc( mWorld, allocSize );
+        if( !realBuf ) {
+            std::cout << "alloc failure" << std::endl;
+            mCalcFunc = ft->fClearUnitOutputs;
+            return;
+        }
+
+        mBuff = boost::simd::align_on( realBuf, 32 ); // force alignment
+
+        memset(realBuf, 0, allocSize);
 
         if( boost::simd::is_aligned( bufferSize() ) ) {
             auto channelRange = nova::range( mChannelCount );
-            bool outputsAligned = std::any_of( channelRange.begin(), channelRange.end(), [this] (size_t channel) {
-                return boost::simd::is_aligned( out( channel ) );
+            bool outputsAligned = std::all_of( channelRange.begin(), channelRange.end(), [this] (size_t channel) {
+                return boost::simd::is_aligned( out( channel ) + 1 );
             });
 
             if( outputsAligned )
@@ -132,7 +139,7 @@ public:
 
     ~NovaFBIn()
     {
-        RTFree(mWorld, mBuff);
+        RTFree(mWorld, realBuf);
     }
 
 private:
@@ -143,7 +150,7 @@ private:
             const float * buf = mBuff + mBufLength * index;
             float * dest = out(index + 1);
 
-            transformCacheAware( dest, buf, inNumSamples, nova::detail::Identity(), aligned(), OutputAlignemnt() );
+            transformCacheAware( dest, buf, inNumSamples, aligned(), OutputAlignemnt() );
         };
     }
 
@@ -159,6 +166,7 @@ private:
 
     friend class NovaFBOut;
     float * mBuff;
+    float * realBuf;
     int mChannelCount;
 };
 
@@ -175,8 +183,8 @@ public:
 
         if( boost::simd::is_aligned( bufferSize() ) ) {
             auto channelRange = nova::range( mChannelCount );
-            bool inputsAligned = std::any_of( channelRange.begin(), channelRange.end(), [this] (size_t channel) {
-                return boost::simd::is_aligned( in( channel ) );
+            bool inputsAligned = std::all_of( channelRange.begin(), channelRange.end(), [this] (size_t channel) {
+                return boost::simd::is_aligned( in( 2 + channel ) );
             });
 
             if( inputsAligned )
@@ -195,7 +203,7 @@ private:
             const float * source = in( 2 + index );
             float * buf = mBuff + mBufLength * index;
 
-            transformCacheAware( buf, source, inNumSamples, nova::detail::Identity(), InputAlignemnt(), aligned() );
+            transformCacheAware( buf, source, inNumSamples, InputAlignemnt(), aligned() );
         };
     }
 
