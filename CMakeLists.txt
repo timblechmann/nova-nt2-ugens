@@ -43,8 +43,9 @@ add_scplugin(NovaFB             NovaFB.cpp)
 add_scplugin(NovaXFade          NovaXFade.cpp)
 add_scplugin(NovaSVF            NovaSVF.cpp)
 add_scplugin(DiodeLadderFilter  DiodeLadderFilter.cpp)
+add_scplugin(NovaMultiLFO       NovaMultiLFO.cpp)
 
-foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter NovaXFade NovaSVF NovaFB )
+foreach( plugin NovaAmbisonicUGens NovaLeakDC NovaMultiFilters NovaSaturator NovaFeedbackAM DiodeLadderFilter NovaXFade NovaSVF NovaFB NovaMultiLFO )
   target_link_libraries( ${plugin}           NT2)
   target_link_libraries( ${plugin}_supernova NT2)
 endforeach()
@@ -53,6 +54,7 @@ add_scclass( NovaNT2UGens
   sc/NovaFeedbackAM.sc
   sc/NovaFB.sc
   sc/NovaMultiFilters.sc
+  sc/NovaMultiLFO.sc
   sc/NovaNT2UGens.sc
   sc/NovaSaturators.sc
   sc/NovaSVF.sc
