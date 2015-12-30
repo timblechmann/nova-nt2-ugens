@@ -34,7 +34,8 @@ enum lfoMode {
     minVal,
     maxVal,
     randVal,
-    sinVal
+    sinVal,
+    triVal,
 };
 
 
@@ -80,6 +81,14 @@ public:
             return;
         }
 
+        case triVal: {
+            mPhase = PhaseInput::readInput();
+            mPhase = sc_wrap( mPhase, -2.f, 2.f );
+
+            set_calc_function< MultiLFO, &MultiLFO::tri >();
+            return;
+        }
+
         default:
             ;
         }
@@ -97,17 +106,18 @@ private:
         float maxVal      = MaxInput::readInput();
         const float range = calcRange( minVal, maxVal );
 
+        float phaseIncrement = mPhaseIncrement;
+        float phase          = mPhase;
+
         float newFreq = FreqInput::readInput();
         if( BOOST_UNLIKELY( newFreq != mFreq ) ) {
             newFreq = nova::clip2( newFreq, float( sampleRate() ) * 0.5f );
 
-            mPhaseIncrement = newFreq * float( sampleDur() ) * float( twopi );
+            phaseIncrement  = newFreq * float( sampleDur() ) * float( twopi );
+            mPhaseIncrement = phaseIncrement;
             mFreq           = newFreq;
         }
 
-        float phaseIncrement = mPhaseIncrement;
-
-        float phase = mPhase;
         for( int sampleIndex : nova::range( numSamples ) ) {
             float outSin = nova::approximations::sin( phase, nova::approximations::SinFast() );
             out( 0 )[  sampleIndex ] = outSin * range + minVal;
@@ -119,6 +129,37 @@ private:
         }
         mPhase = phase;
     }
+
+    void tri( int numSamples )
+    {
+        float minVal      = MinInput::readInput();
+        float maxVal      = MaxInput::readInput();
+        const float range = calcRange( minVal, maxVal );
+        float phaseIncrement = mPhaseIncrement;
+        float phase = mPhase;
+
+        float newFreq = FreqInput::readInput();
+        if( BOOST_UNLIKELY( newFreq != mFreq ) ) {
+            newFreq = nova::clip2( newFreq, float( sampleRate() ) * 0.5f );
+
+            phaseIncrement  = newFreq * float( sampleDur() ) * 2.f;
+            mPhaseIncrement = phaseIncrement;
+            mFreq           = newFreq;
+        }
+
+        for( int sampleIndex : nova::range( numSamples ) ) {
+            float tri = 1.f - std::abs( phase - 4.f * std::floor( ( phase + 1.f ) * 0.25f ) - 1.f );
+
+            out( 0 )[  sampleIndex ] = tri * range + minVal;
+
+            phase += phaseIncrement;
+
+            phase = (phase >= 2.f) ? phase - 4.f
+                                   : phase;
+        }
+        mPhase = phase;
+    }
+
 
     void setValue( int numSamples )
     {
