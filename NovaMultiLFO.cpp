@@ -56,6 +56,24 @@ struct MultiLFO:
     typedef nova::ScalarInput< MultiLFO, 4 > MaxInput;
 
 public:
+    template <int LFOMode>
+    void selectSetValCalcFunction()
+    {
+        const bool scalarRange = MinInput::scalarRate() && MaxInput::scalarRate();
+
+        if( scalarRange ) {
+            if( bufferSize() == 1)
+                set_calc_function< MultiLFO, &MultiLFO::setValue<LFOMode, true, true>> ();
+            else
+                set_calc_function< MultiLFO, &MultiLFO::setValue<LFOMode, true, false>>();
+        } else {
+            if( bufferSize() == 1)
+                set_calc_function< MultiLFO, &MultiLFO::setValue<LFOMode, false, true>> ();
+            else
+                set_calc_function< MultiLFO, &MultiLFO::setValue<LFOMode, false, false>>();
+        }
+    }
+
     MultiLFO()
     {
         const int mode = int( ModeInput::readInput() );
@@ -64,20 +82,38 @@ public:
         float maxIn       = MaxInput::readInput();
         const float range  = calcRange( minIn, maxIn );
 
+        const bool scalarRange = MinInput::scalarRate() && MaxInput::scalarRate();
+
         switch( mode ) {
-        case minVal: mValue = minIn; break;
-        case maxVal: mValue = maxIn; break;
+        case minVal:
+            mValue = minIn;
+            selectSetValCalcFunction<minVal>();
+            return;
+
+        case maxVal:
+            mValue = maxIn;
+            selectSetValCalcFunction<maxVal>();
+            return;
 
         case randVal: {
-            mValue = mParent->mRGen->frand() * range + minIn;
-            break;
+            if( scalarRange )
+                mValue = mParent->mRGen->frand() * range + minIn;
+            else
+                mValue = mParent->mRGen->frand(); // rescaling is done in perform function
+
+            mValue = maxIn;
+            selectSetValCalcFunction<randVal>();
+            return;
         }
 
         case sinVal: {
             mPhase = PhaseInput::readInput();
             mPhase = sc_wrap( mPhase + 0.5f, 0.f, 1.f ) * twopi - pi;
 
-            set_calc_function< MultiLFO, &MultiLFO::sin >();
+            if( FreqInput::scalarRate() )
+                set_calc_function< MultiLFO, &MultiLFO::sin<true> >();
+            else
+                set_calc_function< MultiLFO, &MultiLFO::sin<false> >();
             return;
         }
 
@@ -85,21 +121,21 @@ public:
             mPhase = PhaseInput::readInput();
             mPhase = sc_wrap( mPhase, -2.f, 2.f );
 
-            set_calc_function< MultiLFO, &MultiLFO::tri >();
+            if( FreqInput::scalarRate() )
+                set_calc_function< MultiLFO, &MultiLFO::tri<true> >();
+            else
+                set_calc_function< MultiLFO, &MultiLFO::tri<false> >();
             return;
         }
 
         default:
-            ;
+            mCalcFunc = ft->fClearUnitOutputs;
+            (mCalcFunc)(this, 1);
         }
-
-        if( bufferSize() == 1)
-            set_calc_function< MultiLFO, &MultiLFO::setValue_1 >();
-        else
-            set_calc_function< MultiLFO, &MultiLFO::setValue >();
     }
 
 private:
+    template <bool FreqIsConstant = true>
     void sin( int numSamples )
     {
         float minVal      = MinInput::readInput();
@@ -109,13 +145,15 @@ private:
         float phaseIncrement = mPhaseIncrement;
         float phase          = mPhase;
 
-        float newFreq = FreqInput::readInput();
-        if( BOOST_UNLIKELY( newFreq != mFreq ) ) {
-            newFreq = nova::clip2( newFreq, float( sampleRate() ) * 0.5f );
+        if( !FreqIsConstant ) {
+            float newFreq = FreqInput::readInput();
+            if( BOOST_UNLIKELY( newFreq != mFreq ) ) {
+                newFreq = nova::clip2( newFreq, float( sampleRate() ) * 0.5f );
 
-            phaseIncrement  = newFreq * float( sampleDur() ) * float( twopi );
-            mPhaseIncrement = phaseIncrement;
-            mFreq           = newFreq;
+                phaseIncrement  = newFreq * float( sampleDur() ) * float( twopi );
+                mPhaseIncrement = phaseIncrement;
+                mFreq           = newFreq;
+            }
         }
 
         for( int sampleIndex : nova::range( numSamples ) ) {
@@ -130,6 +168,7 @@ private:
         mPhase = phase;
     }
 
+    template <bool FreqIsConstant = true>
     void tri( int numSamples )
     {
         float minVal      = MinInput::readInput();
@@ -138,13 +177,15 @@ private:
         float phaseIncrement = mPhaseIncrement;
         float phase = mPhase;
 
-        float newFreq = FreqInput::readInput();
-        if( BOOST_UNLIKELY( newFreq != mFreq ) ) {
-            newFreq = nova::clip2( newFreq, float( sampleRate() ) * 0.5f );
+        if( !FreqIsConstant ) {
+            float newFreq = FreqInput::readInput();
+            if( BOOST_UNLIKELY( newFreq != mFreq ) ) {
+                newFreq = nova::clip2( newFreq, float( sampleRate() ) * 0.5f );
 
-            phaseIncrement  = newFreq * float( sampleDur() ) * 2.f;
-            mPhaseIncrement = phaseIncrement;
-            mFreq           = newFreq;
+                phaseIncrement  = newFreq * float( sampleDur() ) * 2.f;
+                mPhaseIncrement = phaseIncrement;
+                mFreq           = newFreq;
+            }
         }
 
         for( int sampleIndex : nova::range( numSamples ) ) {
@@ -160,16 +201,36 @@ private:
         mPhase = phase;
     }
 
-
+    template <int LFOMode, bool ScalarRange = false, bool ControlRate = false>
     void setValue( int numSamples )
     {
-        for( int sampleIndex : nova::range( numSamples ) )
-            out( 0 )[ sampleIndex ] = mValue;
+        const float value = readValue<LFOMode, ScalarRange>();
+
+        if( ControlRate )
+            out(0)[0] = value;
+        else
+            for( int sampleIndex : nova::range( numSamples ) )
+                out( 0 )[ sampleIndex ] = value;
     }
 
-    void setValue_1( int numSamples )
+    template <int LFOMode, bool ScalarRange>
+    float readValue()
     {
-        out(0)[0] = mValue;
+        if( ScalarRange )
+            return mValue;
+
+        float minIn       = MinInput::readInput();
+        float maxIn       = MaxInput::readInput();
+        const float range  = calcRange( minIn, maxIn );
+
+        switch( LFOMode ) {
+        case minVal:  return minIn;
+        case maxVal:  return maxIn;
+        case randVal: return mValue * range + minIn;
+
+        default:
+            BOOST_UNREACHABLE_RETURN( 0.f );
+        }
     }
 
     float calcRange( float & a, float & b )
