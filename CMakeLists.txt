@@ -28,11 +28,25 @@ add_dependencies( NT2 NT2Project )
 target_compile_definitions( NT2 INTERFACE BOOST_SIMD_NO_STRICT_ALIASING BOOST_SIMD_NO_NANS )
 
 
+########################
+# we need a recent boost
+#
+include_directories( ~/boost_1_59_0/ )
+include_directories( ~/boost_1_60_0/ )
+include_directories( ~/boost_1_61_0/ )
+include_directories( ~/boost_1_62_0/ )
+
+if(APPLE)
+  # hopefully homebrew provides boost
+  include_directories( /usr/local/include )
+endif()
+
 
 
 #########
 # plugins
 
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR} )
 
 add_scplugin(NovaAmbisonicUGens NovaAmbisonicUGens.cpp ${headers} ${headers_2} ${headers_3})
 add_scplugin(NovaLeakDC         NovaLeakDC.cpp)
