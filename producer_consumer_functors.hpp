@@ -114,7 +114,7 @@ struct packGenerator<8>
 }
 
 template <typename OutputType, typename Scalar>
-auto makeScalarRamp( Scalar base, Scalar slope )
+BOOST_FORCEINLINE auto makeScalarRamp( Scalar base, Scalar slope )
 {
     OutputType state = base;
 
@@ -126,7 +126,7 @@ auto makeScalarRamp( Scalar base, Scalar slope )
 
 
 template <typename OutputType, typename Scalar>
-inline auto makeVectorRamp( Scalar base, Scalar slope )
+BOOST_FORCEINLINE auto makeVectorRamp( Scalar base, Scalar slope )
 {
     using namespace boost::simd;
 
@@ -144,12 +144,12 @@ inline auto makeVectorRamp( Scalar base, Scalar slope )
 template <typename SampleType>
 struct Wire
 {
-    inline SampleType operator() ()
+    BOOST_FORCEINLINE SampleType operator() ()
     {
         return _data;
     }
 
-    inline void operator() (SampleType arg)
+    BOOST_FORCEINLINE void operator() (SampleType arg)
     {
         _data = arg;
     }
@@ -163,7 +163,7 @@ namespace detail {
 
 struct Identity {
     template <typename Arg>
-    inline auto operator()(Arg && arg) const { return arg; }
+    BOOST_FORCEINLINE auto operator()(Arg && arg) const { return arg; }
 
     template <typename Type>
     struct State {
@@ -175,7 +175,7 @@ struct Identity {
 
 
 template <typename OutputType, typename Type, int N>
-inline auto makeVectorRamp( detail::ArithmeticArray<Type, N> base, detail::ArithmeticArray<Type, N> const & slope )
+BOOST_FORCEINLINE auto makeVectorRamp( detail::ArithmeticArray<Type, N> base, detail::ArithmeticArray<Type, N> const & slope )
 {
     using namespace boost::simd;
 
@@ -209,17 +209,17 @@ public:
 
     float slopeFactor() const        { return asUGen()->mRate->mSlopeFactor;            }
 
-    inline float readRawInput() const
+    BOOST_FORCEINLINE float readRawInput() const
     {
         return asUGen()->in0( InputIndex );
     }
 
-    inline auto readInput()
+    BOOST_FORCEINLINE auto readInput()
     {
         return InputFunctor::operator()( readRawInput() );
     }
 
-    inline auto readRawAndMappedInput()
+    BOOST_FORCEINLINE auto readRawAndMappedInput()
     {
         auto rawInputValue = readRawInput();
         auto mappedInput   = InputFunctor::operator()( rawInputValue );
@@ -227,7 +227,7 @@ public:
     }
 
     template< typename OutputType >
-    inline auto makeInputSignal()
+    BOOST_FORCEINLINE auto makeInputSignal()
     {
         OutputType inputSignal = boost::simd::splat<OutputType>( readInput() );
         return [=] { return inputSignal; };
@@ -253,13 +253,13 @@ public:
         std::tie( mState, mXState )  = Base::readRawAndMappedInput();
     }
 
-    inline auto readInput()
+    BOOST_FORCEINLINE auto readInput()
     {
         return Base::readInput();
     }
 
     template <typename Type>
-    inline auto makeRampSignal()
+    BOOST_FORCEINLINE auto makeRampSignal()
     {
         using ScalarType             = typename boost::simd::meta::scalar_of<Type>::type;
         static const size_t cardinal =          boost::simd::meta::cardinal_of<Type>::value;
@@ -277,7 +277,7 @@ public:
     }
 
     template <typename ScalarType>
-    inline auto makeMultiRampSignal()
+    BOOST_FORCEINLINE auto makeMultiRampSignal()
     {
         ScalarState current = InputFunctor::operator ()(mState);
         std::tie( mState, mXState ) = Base::readRawAndMappedInput();
@@ -287,14 +287,14 @@ public:
 
 
     template <typename OutputType>
-    inline auto makeScalarInputSignal()
+    BOOST_FORCEINLINE auto makeScalarInputSignal()
     {
         if( changed() )
             std::tie( mState, mXState ) = Base::readRawAndMappedInput();
         return [=] { return mXState; };
     }
 
-    inline bool changed() const
+    BOOST_FORCEINLINE bool changed() const
     {
         float next = Base::readRawInput();
         return next != mState;
@@ -302,13 +302,13 @@ public:
 
 private:
     template <typename Type>
-    inline auto makeRamp(ScalarState const & base, ScalarState const & slope, vector_slope )
+    BOOST_FORCEINLINE auto makeRamp(ScalarState const & base, ScalarState const & slope, vector_slope )
     {
         return makeVectorRamp<Type>( base, slope );
     }
 
     template <typename Type>
-    inline auto makeRamp(ScalarState const & base, ScalarState const & slope, scalar_slope )
+    BOOST_FORCEINLINE auto makeRamp(ScalarState const & base, ScalarState const & slope, scalar_slope )
     {
         return makeScalarRamp<Type>( base, slope );
     }
@@ -333,13 +333,13 @@ public:
         mState( Base::readRawInput() )
     {}
 
-    inline auto readInput()
+    BOOST_FORCEINLINE auto readInput()
     {
         return Base::readInput();
     }
 
     template <typename Type>
-    inline auto makeRampSignal()
+    BOOST_FORCEINLINE auto makeRampSignal()
     {
         static const size_t cardinal =          boost::simd::meta::cardinal_of<Type>::value;
 
@@ -354,7 +354,7 @@ public:
     }
 
     template <typename OutputType>
-    inline auto makeScalarInputSignal()
+    BOOST_FORCEINLINE auto makeScalarInputSignal()
     {
         mState = Base::readRawInput();
         return [=] { return mState; };
@@ -368,13 +368,13 @@ public:
 
 private:
     template <typename Type>
-    inline auto makeRamp(float const & base, float const & slope, vector_slope )
+    BOOST_FORCEINLINE auto makeRamp(float const & base, float const & slope, vector_slope )
     {
         return makeVectorRamp<Type>( base, slope );
     }
 
     template <typename Type>
-    inline auto makeRamp(float const & base, float const & slope, scalar_slope )
+    BOOST_FORCEINLINE auto makeRamp(float const & base, float const & slope, scalar_slope )
     {
         return makeScalarRamp<Type>( base, slope );
     }
@@ -397,7 +397,7 @@ struct SignalInput:
     }
 
     template <typename OutputType>
-    inline auto makeInputSignal()
+    BOOST_FORCEINLINE auto makeInputSignal()
     {
         typedef typename boost::mpl::if_c< boost::dispatch::meta::is_scalar< OutputType >::value, scalar_tag, vector_tag >::type dispatch_tag;
         return makeInputSignal<OutputType>( dispatch_tag() );
@@ -405,7 +405,7 @@ struct SignalInput:
 
 private:
     template <typename SIMDType>
-    inline auto makeInputSignal( vector_tag )
+    BOOST_FORCEINLINE auto makeInputSignal( vector_tag )
     {
         const float * input = inputVector();
         return [=] () mutable {
@@ -417,7 +417,7 @@ private:
     }
 
     template <typename ScalarType>
-    inline auto makeInputSignal( scalar_tag )
+    BOOST_FORCEINLINE auto makeInputSignal( scalar_tag )
     {
         const float * input = inputVector();
         return [=] () mutable {
@@ -437,28 +437,28 @@ struct ControlInput:
 {
     /* audio rate input */
     template <typename OutputType>
-    inline auto makeAudioInputSignal()
+    BOOST_FORCEINLINE auto makeAudioInputSignal()
     {
         return SignalInput< UGenClass, InputIndex, InputFunctor>::template makeInputSignal<OutputType>();
     }
 
     /* control rate input */
     template <typename OutputType>
-    inline auto makeRampSignal()
+    BOOST_FORCEINLINE auto makeRampSignal()
     {
         return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeRampSignal<OutputType>();
     }
 
     // multichannel ramp
     template <typename OutputType>
-    inline auto makeMultiRampSignal()
+    BOOST_FORCEINLINE auto makeMultiRampSignal()
     {
         return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeMultiRampSignal<OutputType>();
     }
 
     /* scalar input */
     template <typename OutputType>
-    inline auto makeScalarInputSignal()
+    BOOST_FORCEINLINE auto makeScalarInputSignal()
     {
         return SlopedInput< UGenClass, InputIndex, InputFunctor >::template makeScalarInputSignal<OutputType>();
     }
@@ -476,7 +476,7 @@ struct OutputSink
     template <typename SIMDType,
               typename std::enable_if< !boost::dispatch::meta::is_scalar<SIMDType>::value
                                        >::type * = nullptr>
-    inline auto makeSink()
+    BOOST_FORCEINLINE auto makeSink()
     {
         float * output = outputVector();
         return [=] (SIMDType arg) mutable {
@@ -488,7 +488,7 @@ struct OutputSink
     template <typename ScalarType,
               typename std::enable_if< boost::dispatch::meta::is_scalar<ScalarType>::value
                                        >::type * = nullptr>
-    inline auto makeSink()
+    BOOST_FORCEINLINE auto makeSink()
     {
         float * output = outputVector();
         return [=] (ScalarType arg) mutable {
@@ -505,7 +505,7 @@ struct ScalarInput:
     private InputFunctor
 {
     template< typename OutputType >
-    inline auto readInputs()
+    BOOST_FORCEINLINE auto readInputs()
     {
         return detail::packGenerator<NumberOfChannels>::template generate<OutputType>( [this, index = 0] () mutable {
              return InputFunctor::operator ()( static_cast<UGenClass*>(this)->in0( InputIndex + index++ ) );
@@ -514,7 +514,7 @@ struct ScalarInput:
 
 
     template< typename OutputType >
-    inline auto makeInputSignal()
+    BOOST_FORCEINLINE auto makeInputSignal()
     {
         OutputType inputSignal = readInputs<OutputType>();
         return [=] { return inputSignal; };
@@ -531,29 +531,29 @@ struct SlopedInput:
         mState( readInput() )
     {}
 
-    inline auto readInput()
+    BOOST_FORCEINLINE auto readInput()
     {
         return ScalarInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template readInputs<Vector>();
     }
 
-    inline auto readAndUpdateInput()
+    BOOST_FORCEINLINE auto readAndUpdateInput()
     {
         updateState();
         return mState;
     }
 
-    inline auto readSlopeFactor()
+    BOOST_FORCEINLINE auto readSlopeFactor()
     {
         return boost::simd::splat<Vector>( static_cast<UGenClass*>(this)->mRate->mSlopeFactor );
     }
 
-    inline auto currentValue()
+    BOOST_FORCEINLINE auto currentValue()
     {
         return mState;
     }
 
     template< typename OutputType >
-    inline auto makeRampSignal( )
+    BOOST_FORCEINLINE auto makeRampSignal( )
     {
         Vector current = mState;
         Vector next  = readInput();
@@ -562,13 +562,13 @@ struct SlopedInput:
         return makeScalarRamp<OutputType>( current, slope );
     }
 
-    inline void updateState()
+    BOOST_FORCEINLINE void updateState()
     {
         mState = readInput();
     }
 
     template< typename OutputType>
-    inline auto makeScalarInputSignal()
+    BOOST_FORCEINLINE auto makeScalarInputSignal()
     {
         OutputType state { mState };
         return [=] { return state; };
@@ -589,7 +589,7 @@ struct SignalInput:
     private InputFunctor
 {
     template< typename OutputType >
-    inline auto readInputs( int sampleIndex )
+    BOOST_FORCEINLINE auto readInputs( int sampleIndex )
     {
         static_assert( NumberOfChannels == boost::simd::meta::cardinal_of<OutputType>::value, "failed" );
 
@@ -600,13 +600,13 @@ struct SignalInput:
     }
 
     template< typename OutputType >
-    inline auto readInputs()
+    BOOST_FORCEINLINE auto readInputs()
     {
         return readInputs<OutputType>( 0 );
     }
 
     template< typename OutputType >
-    inline auto makeInputSignal()
+    BOOST_FORCEINLINE auto makeInputSignal()
     {
         return [=, sampleIndex = 0] () mutable {
             return readInputs<OutputType>( sampleIndex++ );
@@ -618,7 +618,7 @@ template <typename UGenClass, size_t InputIndex, size_t NumberOfChannels>
 struct SignalInput< UGenClass, InputIndex, NumberOfChannels, detail::Identity>
 {
     template< typename OutputType >
-    inline auto readInputs( int sampleIndex )
+    BOOST_FORCEINLINE auto readInputs( int sampleIndex )
     {
         static_assert( NumberOfChannels == boost::simd::meta::cardinal_of<OutputType>::value, "failed" );
 
@@ -629,13 +629,13 @@ struct SignalInput< UGenClass, InputIndex, NumberOfChannels, detail::Identity>
     }
 
     template< typename OutputType >
-    inline auto readInputs()
+    BOOST_FORCEINLINE auto readInputs()
     {
         return readInputs<OutputType>( 0 );
     }
 
     template< typename OutputType >
-    inline auto makeInputSignal()
+    BOOST_FORCEINLINE auto makeInputSignal()
     {
         return [=, sampleIndex = 0] () mutable {
             return readInputs<OutputType>( sampleIndex++ );
@@ -654,27 +654,27 @@ struct ControlInput:
 
     /* audio rate input */
     template <typename OutputType>
-    inline auto makeAudioInputSignal()
+    BOOST_FORCEINLINE auto makeAudioInputSignal()
     {
         return SignalInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>::template makeInputSignal<OutputType>();
     }
 
     /* control rate input */
     template <typename OutputType>
-    inline auto makeRampSignal()
+    BOOST_FORCEINLINE auto makeRampSignal()
     {
         return SlopedInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template makeRampSignal<OutputType>();
     }
 
     /* scalar input */
     template <typename OutputType>
-    inline auto makeScalarInputSignal()
+    BOOST_FORCEINLINE auto makeScalarInputSignal()
     {
         return SlopedInput< UGenClass, InputIndex, NumberOfChannels, InputFunctor >::template makeScalarInputSignal<OutputType>();
     }
 
     template< typename OutputType >
-    inline auto readInputs( int sampleIndex )
+    BOOST_FORCEINLINE auto readInputs( int sampleIndex )
     {
         return SignalInput<UGenClass, InputIndex, NumberOfChannels, InputFunctor>::template readInputs<OutputType>( sampleIndex );
     }
@@ -692,7 +692,7 @@ struct OutputSink
     }
 
     template <typename OutputType>
-    inline auto makeSink()
+    BOOST_FORCEINLINE auto makeSink()
     {
         return [=, sampleIndex = 0] (OutputType const & arg) mutable {
 
