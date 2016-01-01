@@ -297,6 +297,8 @@ struct PulseDPW:
     typedef typename impl::DPWBase<PulseDPW>::ParameterState ParameterState;
     typedef typename impl::DPWBase<PulseDPW>::ParameterType  ParameterType;
 
+    typedef boost::simd::pack< double, 2 > ParameterType2;
+
     // parameters
     template <typename DSPContext>
     static auto computeState( ParameterType freq, DSPContext const & dspContext )
@@ -327,10 +329,11 @@ struct PulseDPW:
     }
 
     PulseDPW( ParameterState state, ParameterType width = 0.5f, ParameterType initialPhase = 0.f ):
-        DPWBase( state ),
-        mPhase0( initialPhase ),                                      mLastValue0( mPhase0 ),
-        mPhase1( wrap(initialPhase + width + width ) ), mLastValue1( mPhase1 )
-    {}
+        DPWBase( state )
+    {
+        mPhase     = ParameterType2{  initialPhase, wrap(initialPhase + width + width ) };
+        mLastValue = mPhase;
+    }
 
     // DSP
     template < typename OutputFunctor >
@@ -343,20 +346,18 @@ struct PulseDPW:
     template < typename OutputFunctor, typename State >
     inline void run ( OutputFunctor & out, size_t count, State && a )
     {
-        ParameterType phase0     = mPhase0;
-        ParameterType phase1     = mPhase1;
-        ParameterType lastValue0 = mLastValue0;
-        ParameterType lastValue1 = mLastValue1;
+        ParameterType2 phase     = mPhase;
+        ParameterType2 lastValue = mLastValue;
 
         const size_t unroll2 = count / 2;
         const size_t remain  = count & 1;
 
         for (size_t i = 0; i != unroll2; ++i) {
             ParameterState state = a();
-            float y0 = tick( phase0, lastValue0, phase1, lastValue1, state[PhaseIncrement], state[Scale] );
+            float y0 = tick( phase, lastValue, state[PhaseIncrement], state[Scale] );
 
             state = a();
-            float y1 = tick( phase0, lastValue0, phase1, lastValue1, state[PhaseIncrement], state[Scale] );
+            float y1 = tick( phase, lastValue, state[PhaseIncrement], state[Scale] );
 
             out(y0);
             out(y1);
@@ -365,44 +366,48 @@ struct PulseDPW:
 		if( BOOST_UNLIKELY( remain ) ) {
 			for (size_t i = 0; i != remain; ++i) {
 				ParameterState state = a();
-				float y0 = tick( phase0, lastValue0, phase1, lastValue1, state[PhaseIncrement], state[Scale] );
+				float y0 = tick( phase, lastValue, state[PhaseIncrement], state[Scale] );
 				out(y0);
 			}
 		}
 
-        mPhase0     = phase0;
-        mPhase1     = phase1;
-        mLastValue0 = lastValue0;
-        mLastValue1 = lastValue1;
+        mPhase     = phase;
+        mLastValue = lastValue;
     }
 
 
-    static inline float tick(ParameterType & phase0, ParameterType & lastVal0,
-                             ParameterType & phase1, ParameterType & lastVal1,
+    static inline float tick(ParameterType2 & phase, ParameterType2 & lastVal,
                              float phaseIncrement, float scale)
     {
-        phase0 = incrementPhase(phase0, phaseIncrement);
-        phase1 = incrementPhase(phase1, phaseIncrement);
+        phase = incrementPhase(phase, phaseIncrement);
 
-        // squared saw
-        ParameterType val0 = phase0 * phase0;
-        ParameterType val1 = phase1 * phase1;
+        // squared saws
+        ParameterType2 val = phase * phase;
 
         // differentiate parabolic wave
-        ParameterType differentiatedPhase0 = val0 - lastVal0;
-        ParameterType differentiatedPhase1 = val1 - lastVal1;
+        ParameterType2 differentiatedPhase = val - lastVal;
 
         // substracting saws to get a pulse
-        ParameterType pulse = (differentiatedPhase0 - differentiatedPhase1) * scale;
+        // TODO: could use _mm_hsub_ps
+#ifdef __SSE3__
+        typedef boost::simd::native< double, boost::simd::tag::sse_ > n2d;
+        __m128d nativeDifferentiatedPhase = static_cast<n2d>( differentiatedPhase );
 
-        lastVal0 = val0;
-        lastVal1 = val1;
+        __m128d diffOfSawsDouble  = _mm_hsub_pd( nativeDifferentiatedPhase, nativeDifferentiatedPhase );
+        __m128  diffOfSawsSingle  = _mm_cvtsd_ss( __m128(), diffOfSawsDouble );
+        ParameterType pulse       = _mm_cvtss_f32( diffOfSawsSingle ) * scale;
+
+#else
+        ParameterType pulse = (differentiatedPhase[0] - differentiatedPhase[1]) * scale;
+#endif
+
+        lastVal = val;
 
         return pulse;
     }
 
     template <typename Type>
-    static inline Type incrementPhase(Type phase, Type phaseIncrement)
+    static inline Type incrementPhase(Type phase, float phaseIncrement)
     {
         phase += phaseIncrement;
 
@@ -412,8 +417,7 @@ struct PulseDPW:
     }
 
 protected:
-    ParameterType mPhase0 = 0.f, mLastValue0 = 0.f;
-    ParameterType mPhase1 = 0.f, mLastValue1 = 0.f;
+    ParameterType2 mPhase {0.f}, mLastValue {0.f};
 };
 
 
