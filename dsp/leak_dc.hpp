@@ -74,33 +74,52 @@ struct LeakDC
     template < typename InputFunctor, typename OutputFunctor >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count )
     {
-        run( in, out, count, getState() );
+        doRun<true>( in, out, count, getState() );
     }
 
     template < typename InputFunctor, typename OutputFunctor, typename State >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
+        doRun<false>( in, out, count, a );
+    }
+
+private:
+    template < bool ImmutableState, typename InputFunctor, typename OutputFunctor, typename State >
+    inline void doRun ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
+    {
         SampleType    y_1 = _y_1;
         SampleType    x_1 = _x_1;
 
-        const size_t unroll4 = count / 2;
+        const size_t unroll2 = count / 2;
         const size_t remain  = count & 1;
 
-        for (size_t i = 0; i != unroll4; ++i) {
-            SampleType x0   = in();
-            SampleType y0 = tick(x0, x_1, y_1, a()[0]);
+        ParameterType a0;
+        if( ImmutableState )
+            a0 = a()[0];
 
+        for (size_t i = 0; i != unroll2; ++i) {
+            if( !ImmutableState )
+                a0 = a()[0];
+
+            SampleType x0   = in();
+            SampleType y0 = tick(x0, x_1, y_1, a0);
+
+            if( !ImmutableState )
+                a0 = a()[0];
 
             SampleType x1 = in();
-            SampleType y1 = tick(x1, x_1, y_1, a()[0]);
+            SampleType y1 = tick(x1, x_1, y_1, a0);
 
             out(y0);
             out(y1);
         }
 
         for (size_t i = 0; i != remain; ++i) {
+            if( !ImmutableState )
+                a0 = a()[0];
+
             SampleType x = in();
-            SampleType y = tick(x, x_1, y_1, a()[0]);
+            SampleType y = tick(x, x_1, y_1, a0);
 
             out(y);
         }
@@ -117,7 +136,6 @@ struct LeakDC
         return output;
     }
 
-private:
     ParameterState _state;
     SampleType _x_1 = {0};
     SampleType _y_1 = {0};

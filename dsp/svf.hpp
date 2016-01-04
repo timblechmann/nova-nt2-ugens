@@ -104,7 +104,7 @@ struct SVFFilter
     template < typename InputFunctor, typename OutputFunctor, typename State >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
-        doRun<false>( in, out, count, getState() );
+        doRun<false>( in, out, count, a );
     }
 
 private:
@@ -215,7 +215,7 @@ struct SVFEQ
     template < typename InputFunctor, typename OutputFunctor, typename State >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
-        doRun<false>( in, out, count, getState() );
+        doRun<false>( in, out, count, a );
     }
 
 private:
@@ -318,7 +318,7 @@ struct SVFLowShelf
     template < typename InputFunctor, typename OutputFunctor, typename State >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
-        doRun<false>( in, out, count, getState() );
+        doRun<false>( in, out, count, a );
     }
 
 private:
@@ -420,7 +420,7 @@ struct SVFHighShelf
     template < typename InputFunctor, typename OutputFunctor, typename State >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
-        doRun<false>( in, out, count, getState() );
+        doRun<false>( in, out, count, a );
     }
 
 private:

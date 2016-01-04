@@ -108,7 +108,7 @@ struct TiltFilter
     template < typename InputFunctor, typename OutputFunctor, typename State >
     inline void run ( InputFunctor & in, OutputFunctor & out, size_t count, State && a )
     {
-        doRun<false>( in, out, count, getState() );
+        doRun<false>( in, out, count, a );
     }
 
 private:
