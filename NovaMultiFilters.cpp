@@ -23,7 +23,6 @@
 
 #include "dsp/biquad.hpp"
 #include "dsp/integrator.hpp"
-#include "dsp/leak_dc.hpp"
 #include "producer_consumer_functors.hpp"
 
 #include <boost/math/constants/constants.hpp>
