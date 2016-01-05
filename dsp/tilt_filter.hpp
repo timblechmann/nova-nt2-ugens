@@ -25,7 +25,7 @@
 #include <boost/simd/include/functions/fast_rec.hpp>
 #include <nt2/include/functions/exp.hpp>
 
-
+#include <approximations/exp.hpp>
 #include <dsp/arithmeticarray.hpp>
 #include <dsp/range.hpp>
 #include <dsp/utils.hpp>
@@ -72,24 +72,24 @@ struct TiltFilter
 
         typedef typename meta::scalar_of<ParameterType>::type ParameterScalar;
         typedef decltype(dspContext.sampleRate()) SampleRateType;
-        ParameterType normalizedFrequency = nova::clip( frequency, ParameterScalar(0.01f), ParameterScalar( dspContext.sampleRate() * (SampleRateType)(0.5)) ) * dspContext.sampleDur();
+        frequency = nova::clip( frequency, ParameterScalar(0.01f), ParameterScalar( dspContext.sampleRate() * (SampleRateType)(0.5)) );
 
-        constexpr InternalType amp = 6 / std::log( 2 );
+        constexpr InternalType ampFactor = std::log( 2.0 ) / 6.0;
 
         InternalType gfactor = 5; // gfactor is the proportional gain
 
         ParameterType g1, g2;
 
         g1 = if_else( gain > Zero<ParameterType>(), -gfactor*gain,        -gain);
-        g1 = if_else( gain > Zero<ParameterType>(),          gain, gfactor*gain);
+        g2 = if_else( gain > Zero<ParameterType>(),          gain, gfactor*gain);
 
         //two separate gains
-        ParameterType lowGain = nt2::exp( fast_div(g1, amp) ) - 1.f;
-        ParameterType hiGain  = nt2::exp( fast_div(g2, amp) ) - 1.f;
+        ParameterType lowGain = nova::approximations::exp<ParameterType>( g1 * ampFactor, nova::approximations::ExpFast() ) - 1.f;
+        ParameterType hiGain  = nova::approximations::exp<ParameterType>( g2 * ampFactor, nova::approximations::ExpFast() ) - 1.f;
 
         //filter
         ParameterType twopi = Pi<ParameterType>() + Pi<ParameterType>();
-        ParameterType omega = twopi * normalizedFrequency;
+        ParameterType omega = twopi * frequency;
         ParameterType   sr3 = dspContext.sampleRate() + dspContext.sampleRate() + dspContext.sampleRate();
         ParameterType     n = fast_rec( sr3 + omega);
         ParameterType    a0 = (omega+omega)*n;
