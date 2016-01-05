@@ -75,6 +75,7 @@ add_scclass( NovaNT2UGens
   sc/NovaOscDPW.sc
   sc/NovaSaturators.sc
   sc/NovaSVF.sc
+  sc/NovaTiltFilter.sc
   sc/NovaXFade.sc )
 
 ##########
