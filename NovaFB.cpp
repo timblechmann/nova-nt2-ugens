@@ -126,7 +126,7 @@ public:
         if( boost::simd::is_aligned( bufferSize() ) ) {
             auto channelRange = nova::range( mChannelCount );
             bool outputsAligned = std::all_of( channelRange.begin(), channelRange.end(), [this] (size_t channel) {
-                return boost::simd::is_aligned( out( channel ) + 1 );
+                return boost::simd::is_aligned( out( channel + 1 ) );
             });
 
             if( outputsAligned )
@@ -203,7 +203,7 @@ private:
             const float * source = in( 2 + index );
             float * buf = mBuff + mBufLength * index;
 
-            transformCacheAware( buf, source, inNumSamples, InputAlignemnt(), aligned() );
+            transformCacheAware( buf, source, inNumSamples, InputAlignemnt(), stream() );
         };
     }
 
