@@ -17,8 +17,8 @@ include(ExternalProject)
 ExternalProject_Add( NT2Project
   SOURCE_DIR         ${CMAKE_CURRENT_SOURCE_DIR}/nt2
   BINARY_DIR         ${CMAKE_CURRENT_BINARY_DIR}/nt2/build
-  CONFIGURE_COMMAND  cmake -DNT2_VERSION_STRING="git" ${CMAKE_CURRENT_SOURCE_DIR}/nt2
-  BUILD_COMMAND      cmake --build ${CMAKE_CURRENT_BINARY_DIR}/nt2/build --target stage
+  CONFIGURE_COMMAND  ${CMAKE_COMMAND} -DNT2_VERSION_STRING="git" -DBOOST_ROOT=${SC_PATH}/external_libraries/boost ${CMAKE_CURRENT_SOURCE_DIR}/nt2
+  BUILD_COMMAND      ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR}/nt2/build --target stage
   INSTALL_COMMAND    ""
 )
 
