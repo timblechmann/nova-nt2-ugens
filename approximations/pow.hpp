@@ -76,7 +76,7 @@
 #include <boost/simd/include/functions/if_one_else_zero.hpp>
 #include <boost/simd/include/functions/if_else.hpp>
 #include <boost/simd/include/functions/if_else_zero.hpp>
-#include <boost/simd/include/functions/fast_toint.hpp>
+#include <boost/simd/include/functions/toint.hpp>
 #include <boost/simd/include/functions/tofloat.hpp>
 #include <boost/simd/include/functions/trunc.hpp>
 #include <boost/simd/include/functions/bitwise_cast.hpp>
@@ -119,7 +119,7 @@ BOOST_FORCEINLINE auto pow2( Arg x, PowFast) -> Arg
     const Arg z = clipp - trunc( clipp ) + offset;
 
     const Arg f = splat<Arg>(1 << 23) * (clipp + 121.2740575f + 27.7280233f * fast_rec(4.84252568f - z) - 1.49012907f * z);
-    const IntType i = fast_toint( f );
+    const IntType i = toint( f );
     return boost::simd::bitwise_cast<Arg>( i );
 }
 
@@ -130,16 +130,14 @@ BOOST_FORCEINLINE auto pow2( Arg x, PowFaster) -> Arg
     using namespace boost::simd;
     typedef typename boost::dispatch::meta::as_integer<Arg>::type IntType;
 
-    const Arg offset = if_else_zero( x < Zero<Arg>(), One<Arg>() );
     const Arg clipp  = if_else( x < splat<Arg>(-126),
                                 splat<Arg>(-126),
                                 x );
 
-    const Arg z = clipp - trunc( clipp ) + offset;
-
-    const Arg f = splat<Arg>(1 << 23) * (clipp + 121.2740575f + 27.7280233f * fast_rec(4.84252568f - z) - 1.49012907f * z);
-    const IntType i = fast_toint( f );
-    return boost::simd::bitwise_cast<Arg>( i );
+    const Arg f      = splat<Arg>(1 << 23) * (clipp + 126.94269504f);
+    const IntType i  = toint( f );
+    const Arg result = boost::simd::bitwise_cast<Arg>( i );
+    return result;
 }
 
 

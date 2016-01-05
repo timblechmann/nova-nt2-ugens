@@ -65,6 +65,8 @@
 #include <nt2/include/functions/exp.hpp>
 #include <approximations/pow.hpp>
 
+#include <dsp/utils.hpp>
+
 namespace nova {
 namespace approximations {
 
@@ -85,14 +87,19 @@ BOOST_FORCEINLINE auto exp( Arg x, ExpPrecise) -> Arg
 template <typename Arg>
 BOOST_FORCEINLINE auto exp( Arg x, ExpFast) -> Arg
 {
-    return pow2<Arg>( x * 1.442695040f, PowFast() );
+    typedef typename nova::as_pack< float, boost::simd::meta::cardinal_of<Arg>::value >::type FloatArg;
+
+    FloatArg result = pow2<FloatArg>( castType<FloatArg>( x ) * 1.442695040f, PowFast() );
+    return castType<Arg>( result );
 }
 
 
 template <typename Arg>
 BOOST_FORCEINLINE auto exp( Arg x, ExpFaster) -> Arg
 {
-    return pow2<Arg>( x * 1.442695040f, PowFaster() );
+    typedef typename nova::as_pack< float, boost::simd::meta::cardinal_of<Arg>::value >::type FloatArg;
+    FloatArg result = pow2<FloatArg>( castType<FloatArg>( x ) * 1.442695040f, PowFaster() );
+    return castType<Arg>( result );
 }
 
 }}
