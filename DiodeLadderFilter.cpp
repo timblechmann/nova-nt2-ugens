@@ -311,16 +311,25 @@ private:
 
         auto two = boost::simd::Two<InternalParameterType>();
 
+
+        InternalType z0 = z[0];
+        InternalType z1 = z[1];
+        InternalType z2 = z[2];
+        InternalType z3 = z[3];
+        InternalType z4 = z[4];
+
         // current state
 #if 0
         const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - two*a2) * a + z[3] * (b2 - InternalType(3.0) * a2) * b ) * c;
 #else
-        const InternalType s0 = (a2*a*z[0] + a2*b*z[1] + z[2] * (b2 - (a2+a2)) * a + z[3] * (b2 - InternalType(3.0) * a2) * b ) * c;
+        const InternalParameterType twoA2   = a2 + a2;
+        const InternalParameterType threeA2 = twoA2 + a2;
+        const InternalType s0 = ( a2*a*z0 + a2*b*z1 + z2 * (b2 - twoA2) * a + z3 * (b2 - threeA2) * b ) * c;
 #endif
-        const InternalType s = bh * s0 - z[4];
+        const InternalType s = bh * s0 - z4;
 
         // solve feedback loop (linear)
-        InternalType y5 =  g*x + s * raw_rec( One<InternalType>() + g*k );
+        InternalType y5 =  (g*x + s) * raw_rec( One<InternalType>() + g*k );
         //InternalType y5 = fast_div( g*x + s, One<InternalType>() + g*k );
 
 
@@ -330,9 +339,9 @@ private:
 
         // compute integrator outputs
         const InternalType y4 = g0*y0 + s0;
-        const InternalType y3 = (b*y4 - z[3]) * ainv;
-        const InternalType y2 = (b*y3 - a*y4 - z[2]) * ainv;
-        const InternalType y1 = (b*y2 - a*y3 - z[1]) * ainv;
+        const InternalType y3 = (b*y4 - z3) * ainv;
+        const InternalType y2 = (b*y3 - a*y4 - z2) * ainv;
+        const InternalType y1 = (b*y2 - a*y3 - z1) * ainv;
 
 #if 0
         const auto two_a = a * two;
@@ -346,16 +355,17 @@ private:
 
 #else
 
-        const auto two_a = a + a;
+        const InternalParameterType two_a  = a + a;
+        const InternalParameterType four_a = two_a + two_a;
+        InternalParameterType ah = hpfState[stateAH];
 
         // update filter state
-        z[0] += two * two_a * (y0 -     y1  + y2);
-        z[1] +=       two_a * (y1 - (y2+y2) + y3);
-        z[2] +=       two_a * (y2 - (y3+y3) + y4);
-        z[3] +=       two_a * (y3 - (y4+y4)     );
+        z[0] = four_a * (y0 -     y1  + y2) + z0;
+        z[1] =  two_a * (y1 - (y2+y2) + y3) + z1;
+        z[2] =  two_a * (y2 - (y3+y3) + y4) + z2;
+        z[3] =  two_a * (y3 - (y4+y4)     ) + z3;
 
 
-        InternalParameterType ah = hpfState[stateAH];
         z[4] = bh*y4 + ah*y5;
 #endif
 
