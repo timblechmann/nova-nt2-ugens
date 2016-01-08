@@ -124,7 +124,10 @@ private:
 
         SampleType lp_out = lp_out_;
 
-        for( size_t i : nova::range( count ) ) {
+        const size_t unroll2 = count / 2;
+        const size_t remain  = count & 1;
+
+        for( size_t i : nova::range( unroll2 ) ) {
             if( !StateImmutable ) {
                 ParameterState a = state();
                 a0 = a[A0], b1 = a[B1], lgain = a[lGain], hgain = a[hGain];
@@ -132,10 +135,34 @@ private:
 
             SampleType inSample = in();
 
-            lp_out            = a0*inSample +    b1*lp_out;
-            SampleType result =    inSample + lgain*lp_out + hgain*(inSample - lp_out);
+            lp_out             = a0*inSample +    b1*lp_out;
+            SampleType result0 =    inSample + lgain*lp_out + hgain*(inSample - lp_out);
 
-            out( result );
+            if( !StateImmutable ) {
+                ParameterState a = state();
+                a0 = a[A0], b1 = a[B1], lgain = a[lGain], hgain = a[hGain];
+            }
+
+            inSample = in();
+
+            lp_out             = a0*inSample +    b1*lp_out;
+            SampleType result1 =    inSample + lgain*lp_out + hgain*(inSample - lp_out);
+
+            out( result0 );
+            out( result1 );
+        }
+
+        for( size_t i : nova::range( remain ) ) {
+            if( !StateImmutable ) {
+                ParameterState a = state();
+                a0 = a[A0], b1 = a[B1], lgain = a[lGain], hgain = a[hGain];
+            }
+
+            SampleType inSample = in();
+
+            lp_out             = a0*inSample +    b1*lp_out;
+            SampleType result0 =    inSample + lgain*lp_out + hgain*(inSample - lp_out);
+            out( result0 );
         }
 
         lp_out_ = lp_out;
