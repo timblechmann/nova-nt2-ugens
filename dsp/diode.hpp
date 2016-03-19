@@ -28,9 +28,12 @@
 
 #include <boost/simd/operator/operator.hpp>
 #include <boost/simd/include/functions/fast_divides.hpp>
+#include <boost/simd/include/functions/fast_rec.hpp>
 #include <boost/simd/include/functions/if_else.hpp>
 #include <boost/simd/include/functions/if_else_zero.hpp>
 
+//#include <boost/simd/constant/constants/one.hpp>
+//#include <boost/simd/constant/constants/zero.hpp>
 
 namespace nova {
 
@@ -51,33 +54,33 @@ auto square_( T arg )
 }
 
 template <typename T>
-std::tuple<T, T> calcDiodeCoefficients( T vB, T vL, T gain )
+auto calcDiodeCoefficients( T vB, T vL, T gain )
 {
     using namespace detail;
 
     const T squareSection = vL - vB;
 
-    const T curveCoeff = boost::simd::fast_divides( vB, double_( squareSection ) );
-    const T linCoeff   = curveCoeff * square( squareSection ) - gain * vL;
+    const T curveCoeff = boost::simd::fast_divides( gain, double_( squareSection ) );
+    const T linCoeff   = curveCoeff * detail::square_( squareSection ) - gain * vL;
     return std::make_tuple( linCoeff, curveCoeff );
 }
 
 template <typename SampleType, typename ArgType >
-SampleType diodeTransferFunction( SampleType input, ArgType curveCoeff, ArgType linCoeff,
+SampleType diodeTransferFunction( SampleType input, ArgType linCoeff, ArgType curveCoeff,
                                   ArgType vB, ArgType vL, ArgType gain )
 {
     using namespace detail;
     SampleType linearSection    = gain * input + linCoeff;
-    SampleType quardaticSection = curveCoeff * square_( input - vB );
+    SampleType quadraticSection = curveCoeff * square_( input - vB );
 
-    SampleType nonZeroSection   = boost::simd::if_else( input < vL, quardaticSection, linearSection );
+    SampleType nonZeroSection   = boost::simd::if_else( input < vL, quadraticSection, linearSection );
     SampleType ret              = boost::simd::if_else_zero( input > vB, nonZeroSection );
     return ret;
 }
 
 // implicit gain: 1
 template <typename SampleType, typename ArgType >
-SampleType diodeTransferFunction( SampleType input, ArgType curveCoeff, ArgType linCoeff,
+SampleType diodeTransferFunction( SampleType input, ArgType linCoeff, ArgType curveCoeff,
                                   ArgType vB, ArgType vL )
 {
     using namespace detail;
@@ -89,13 +92,46 @@ SampleType diodeTransferFunction( SampleType input, ArgType curveCoeff, ArgType 
     return ret;
 }
 
-template <typename SampleType >
-SampleType diodeSaturation( SampleType input )
+
+template <typename ArgType>
+auto calcDiodeSaturationCoefficients( ArgType vB, ArgType vL )
 {
+    ArgType linCoeff, curveCoeff;
+    std::tie( linCoeff, curveCoeff ) = calcDiodeCoefficients( vB, vL, boost::simd::One<ArgType>() );
 
+    const ArgType scaleFactor        = boost::simd::fast_rec( diodeTransferFunction( ArgType{1.f}, linCoeff, curveCoeff, vB, vL ) );
 
-
+    return std::make_tuple( linCoeff, curveCoeff, scaleFactor );
 }
 
+
+template <typename SampleType, typename SaturationParameter >
+SampleType diodeSaturation( SampleType input, SaturationParameter saturationParameter )
+{
+    const auto vB          = std::get<0>( saturationParameter );
+    const auto vL          = std::get<1>( saturationParameter );
+    const auto linCoeff    = std::get<2>( saturationParameter );
+    const auto curveCoeff  = std::get<3>( saturationParameter );
+    const auto scaleFactor = std::get<4>( saturationParameter );
+
+    const SampleType scaledArgument = SampleType{1} - boost::simd::abs( input );
+    const SampleType diodeShaped       = diodeTransferFunction( scaledArgument,
+                                                                linCoeff, curveCoeff, vB, vL );
+
+    const SampleType scaled = SampleType{1} - scaleFactor * diodeShaped;
+
+    return boost::simd::copysign( scaled, input );
+}
+
+template <typename SampleType, typename ArgType >
+SampleType diodeSaturation( SampleType input, ArgType vB, ArgType vL )
+{
+    ArgType linCoeff, curveCoeff, scaleFactor;
+    std::tie( linCoeff, curveCoeff, scaleFactor ) = calcDiodeSaturationCoefficients( vB, vL );
+
+    return diodeSaturation( input, std::make_tuple( vB, vL, linCoeff, curveCoeff, scaleFactor ) );
+}
+
+}
 
 #endif

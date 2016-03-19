@@ -1,8 +1,9 @@
 #include <iostream>
+#include <boost/range/irange.hpp>
 
 #include <dsp/saturators.hpp>
+#include <dsp/diode.hpp>
 
-#include <boost/range/irange.hpp>
 
 #include <boost/simd/include/pack.hpp>
 #include <boost/simd/sdk/simd/meta/vector_of.hpp>
@@ -22,7 +23,7 @@ void run_test(Functor && f)
 #else
         using pack = boost::simd::pack<float, 8>;
 //        using pack = boost::simd::meta::vector_of<float, 4>::type;
-        pack out = f( bs::splat<pack>(x), bs::splat<pack>(2.f) );
+        pack out = f( pack{x}, pack{1.f} );
 #endif
 
         std::cout << x << " " << out << std::endl;
@@ -34,5 +35,6 @@ int main()
 {
 //    run_test( [](auto a, auto b) { return nova::saturator::parabol( a, b ); } );
 //    run_test( [](auto a, auto b) { return nova::saturator::hyperbol( a, b ); } );
-    run_test( [](auto a, auto b) { return nova::saturator::pow( a, b ); } );
+//    run_test( [](auto a, auto b) { return nova::saturator::pow( a, b ); } );
+    run_test( [](auto a, auto b) { return nova::diodeSaturation( a, 0.2, 0.8 ); } );
 }
